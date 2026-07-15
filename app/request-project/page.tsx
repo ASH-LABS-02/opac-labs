@@ -11,10 +11,33 @@ const steps = [
 ];
 
 const features = [
-    { icon: '⚡', label: 'Fast Turnaround', desc: 'Most projects delivered in 1–4 weeks.' },
-    { icon: '🔧', label: 'Expert Engineers', desc: 'Experienced in IoT, robotics & embedded systems.' },
-    { icon: '📦', label: 'Full Kit Included', desc: 'All components, code, and documentation provided.' },
-    { icon: '💬', label: '24h Response', desc: 'We reply to every request within one business day.' },
+    {
+        icon: (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+        ),
+        label: 'Fast Turnaround',
+        desc: 'Most projects delivered in 1–4 weeks.'
+    },
+    {
+        icon: (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+            </svg>
+        ),
+        label: 'Expert Engineers',
+        desc: 'Experienced in IoT & embedded systems.'
+    },
+    {
+        icon: (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+        ),
+        label: '24h Response',
+        desc: 'We reply to requests within 1 day.'
+    },
 ];
 
 
@@ -72,21 +95,55 @@ export default function RequestProject() {
 
     return (
         <>
-            <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0f172a 100%)', padding: '56px 24px 48px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
-                <div style={{ display: 'inline-block', padding: '5px 16px', borderRadius: '20px', background: 'rgba(212,175,55,0.15)', border: '1px solid rgba(212,175,55,0.3)', color: '#d4af37', fontSize: '12px', fontWeight: '600', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '18px' }}>Custom Project Service</div>
-                <h1 style={{ fontSize: '36px', fontWeight: '800', color: '#ffffff', marginBottom: '14px', letterSpacing: '-0.5px', lineHeight: 1.2 }}>Build Your Dream Project</h1>
-                <p style={{ fontSize: '15px', color: '#94a3b8', maxWidth: '500px', margin: '0 auto', lineHeight: 1.7 }}>From IoT devices to robotics — tell us what you need and our engineers will make it happen.</p>
+            <style>{`
+                @keyframes float-slow {
+                    0% { transform: translate(0px, 0px) scale(1); }
+                    33% { transform: translate(30px, -30px) scale(1.1); }
+                    66% { transform: translate(-20px, 20px) scale(0.95); }
+                    100% { transform: translate(0px, 0px) scale(1); }
+                }
+                @keyframes float-reverse {
+                    0% { transform: translate(0px, 0px) scale(1); }
+                    50% { transform: translate(-30px, 30px) scale(1.05); }
+                    100% { transform: translate(0px, 0px) scale(1); }
+                }
+                .hero-grid-bg {
+                    background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 0);
+                    background-size: 24px 24px;
+                }
+                .glow-blob-1 {
+                    animation: float-slow 16s ease-in-out infinite;
+                }
+                .glow-blob-2 {
+                    animation: float-reverse 20s ease-in-out infinite;
+                }
+                .feature-card {
+                    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+                }
+                .feature-card:hover {
+                    transform: translateY(-5px);
+                    border-color: #1a1a1a !important;
+                    box-shadow: 0 16px 36px rgba(0,0,0,0.06);
+                }
+            `}</style>
+
+            <div style={{ background: '#ffffff', padding: '80px 24px 64px', textAlign: 'center', position: 'relative', borderBottom: '1px solid #e5e5e5' }}>
+                <div style={{ position: 'relative', zIndex: 2 }}>
+                    <div style={{ display: 'inline-block', padding: '6px 18px', borderRadius: '20px', background: '#f5f5f5', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '11px', fontWeight: '700', letterSpacing: '1.8px', textTransform: 'uppercase', marginBottom: '24px' }}>Custom Project Service</div>
+                    <h1 style={{ fontSize: '42px', fontWeight: '900', color: '#1a1a1a', marginBottom: '18px', letterSpacing: '-1px', lineHeight: 1.15 }}>Build Your Dream Project</h1>
+                    <p style={{ fontSize: '16px', color: '#666666', maxWidth: '560px', margin: '0 auto', lineHeight: 1.8, fontWeight: '400' }}>From IoT devices to robotics — tell us what you need and our engineers will make it happen.</p>
+                </div>
             </div>
 
             <div style={{ background: '#fafafa', padding: '56px 24px 100px' }}>
                 <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '56px' }}>
                         {features.map(f => (
-                            <div key={f.label} style={{ background: '#ffffff', border: '1px solid #e5e5e5', borderRadius: '12px', padding: '20px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-                                <span style={{ fontSize: '24px', lineHeight: 1 }}>{f.icon}</span>
+                            <div key={f.label} className="feature-card" style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '28px 24px', display: 'flex', gap: '16px', alignItems: 'flex-start', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.01)' }}>
+                                <span style={{ flexShrink: 0, padding: '10px', borderRadius: '12px', background: '#f8fafc', border: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>{f.icon}</span>
                                 <div>
-                                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#1a1a1a', marginBottom: '4px' }}>{f.label}</div>
-                                    <div style={{ fontSize: '13px', color: '#666', lineHeight: 1.5 }}>{f.desc}</div>
+                                    <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '6px' }}>{f.label}</div>
+                                    <div style={{ fontSize: '13px', color: '#475569', lineHeight: 1.6 }}>{f.desc}</div>
                                 </div>
                             </div>
                         ))}

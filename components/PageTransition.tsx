@@ -5,23 +5,21 @@ import { useEffect, useState } from 'react';
 
 export default function PageTransition({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
-    const [displayChildren, setDisplayChildren] = useState(children);
     const [isAnimating, setIsAnimating] = useState(false);
 
     useEffect(() => {
         setIsAnimating(true);
-        setDisplayChildren(children);
         
         const timer = setTimeout(() => {
             setIsAnimating(false);
-        }, 50);
+        }, 1200);
 
         return () => clearTimeout(timer);
-    }, [pathname, children]);
+    }, [pathname]);
 
     return (
         <div className={isAnimating ? 'page-transition-enter' : ''}>
-            {displayChildren}
+            {children}
         </div>
     );
 }

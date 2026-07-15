@@ -33,12 +33,12 @@ main {
 
 /* Page transition trigger */
 .page-transition-enter {
-    animation: fadeIn 1.6s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: fadeIn 1.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .page-transition-enter .product-card,
 .page-transition-enter .collection-card {
-    animation: fadeInUp 1.6s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    animation: fadeInUp 1.2s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
 .page-transition-enter .product-card:nth-child(1),
