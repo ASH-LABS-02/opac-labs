@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 
+export const dynamic = 'force-dynamic';
+
 const TYPE_LABELS: Record<string, string> = {
     iot: 'IoT & Smart Devices',
     robotics: 'Robotics',
@@ -24,11 +26,18 @@ const TIMELINE_LABELS: Record<string, string> = {
     flexible: 'Flexible',
 };
 
+const NUMERIC_BUDGET: Record<string, number> = {
+    'under-5k': 5000,
+    '5k-10k': 7500,
+    '10k-20k': 15000,
+    '20k-plus': 20000,
+};
+
 // POST /api/request-project  — save project request and return WhatsApp URL
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { name, email, phone, projectType, description, budget, timeline } = body;
+        const { name, email, phone, projectType, description, budget, timeline, userId } = body;
 
         if (!name || !email || !phone || !projectType || !description || !budget || !timeline) {
             return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
@@ -36,7 +45,7 @@ export async function POST(req: NextRequest) {
 
         let requestId = 'req-' + Date.now();
         try {
-            // Save to Firestore
+            // Save to Firestore projectRequests
             const db = getAdminDb();
             const ref = await db.collection('projectRequests').add({
                 name,
@@ -46,10 +55,33 @@ export async function POST(req: NextRequest) {
                 description,
                 budget,
                 timeline,
+                userId: userId || null,
                 status: 'pending',
                 createdAt: FieldValue.serverTimestamp(),
             });
             requestId = ref.id;
+
+            // Also save to orders collection so it appears in My Orders
+            if (userId) {
+                const totalAmount = NUMERIC_BUDGET[budget] || 5000;
+                const projectTitle = TYPE_LABELS[projectType] || projectType;
+                await db.collection('orders').add({
+                    userId: userId,
+                    userName: name,
+                    userEmail: email,
+                    items: [
+                        {
+                            id: requestId,
+                            name: `Custom Build: ${projectTitle} (${description.slice(0, 45)}...)`,
+                            price: totalAmount,
+                            quantity: 1
+                        }
+                    ],
+                    total: totalAmount,
+                    status: 'Processing',
+                    createdAt: FieldValue.serverTimestamp(),
+                });
+            }
         } catch (dbError) {
             console.warn('Could not save to Firestore, continuing to WhatsApp redirect:', dbError);
         }

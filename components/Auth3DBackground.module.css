@@ -1,0 +1,22 @@
+.background { position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:0; background:#f4ece4; }
+.background::before { content:''; position:absolute; inset:0; opacity:.26; background-image:radial-gradient(#8d8274 .7px,transparent .7px); background-size:20px 20px; }
+.left,.right { position:absolute; top:50%; width:clamp(210px,24vw,350px); height:auto; transform:translateY(-50%); stroke-linejoin:round; }
+.left { left:max(12px,calc((100% - 1440px)/2)); }.right { right:max(12px,calc((100% - 1440px)/2)); }
+.traces { stroke:#171714; stroke-width:1.5; opacity:.2; }
+.signal { stroke:#bd3f65; stroke-width:3; stroke-dasharray:12 850; stroke-linecap:round; animation:signalTravel 9s linear infinite; }
+.delayed { animation-delay:-4.5s; stroke:#517b86; }
+.float { animation:hoverSketch 7s ease-in-out infinite; }
+.slow { animation-duration:9s; animation-delay:-3s; }
+.label { font:700 10px var(--font-space-mono),monospace; letter-spacing:.5px; fill:#171714; }
+.spark { transform-box:fill-box; transform-origin:center; animation:sparkTurn 8s ease-in-out infinite; }
+.wifi { animation:radioPulse 4s ease-in-out infinite; }
+.eyes { transform-box:fill-box; transform-origin:center; animation:robotBlink 7s ease-in-out infinite; }
+.background[data-paused='true'] * { animation-play-state:paused; }
+@keyframes signalTravel { to { stroke-dashoffset:-862; } }
+@keyframes hoverSketch { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-12px); } }
+@keyframes sparkTurn { 0%,100% { transform:rotate(-8deg) scale(.9); } 50% { transform:rotate(8deg) scale(1.05); } }
+@keyframes radioPulse { 0%,100% { opacity:.45; } 50% { opacity:1; } }
+@keyframes robotBlink { 0%,44%,48%,100% { transform:scaleY(1); } 46% { transform:scaleY(.12); } }
+@media(max-width:1000px) { .left { left:-65px; }.right { right:-65px; }.left,.right { opacity:.65; } }
+@media(max-width:700px) { .left,.right { width:180px; top:32px; transform:none; opacity:.3; }.left { left:-110px; }.right { right:-110px; }.signal { animation:none; }.background::before { background-size:16px 16px; } }
+@media(prefers-reduced-motion:reduce) { .background * { animation:none !important; } }

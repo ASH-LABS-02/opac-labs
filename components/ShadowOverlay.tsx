@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useId, CSSProperties } from 'react';
+import React, { CSSProperties } from 'react';
 
 
 // Type definitions
@@ -33,6 +33,7 @@ interface ShadowOverlayProps {
     className?: string;
 }
 
+/*
 function mapRange(
     value: number,
     fromLow: number,
@@ -53,6 +54,7 @@ const useInstanceId = (): string => {
     const instanceId = `shadowoverlay-${cleanId}`;
     return instanceId;
 };
+*/
 
 export default function ShadowOverlay({
     sizing = 'fill',
@@ -62,10 +64,10 @@ export default function ShadowOverlay({
     style,
     className
 }: ShadowOverlayProps) {
-    const id = useInstanceId();
+    // const id = useInstanceId();
     const animationEnabled = animation && animation.scale > 0;
-    const displacementScale = animation ? mapRange(animation.scale, 1, 100, 20, 100) : 0;
-    const animationDuration = animation ? mapRange(animation.speed, 1, 100, 1000, 50) : 1;
+    // const displacementScale = animation ? mapRange(animation.scale, 1, 100, 20, 100) : 0;
+    // const animationDuration = animation ? mapRange(animation.speed, 1, 100, 1000, 50) : 1;
 
     return (
         <div
@@ -85,7 +87,7 @@ export default function ShadowOverlay({
                     100% { transform: scale(1); opacity: 0.8; }
                 }
             `}</style>
-            
+
             <div
                 style={{
                     position: "absolute",

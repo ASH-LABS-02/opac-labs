@@ -37,20 +37,23 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        // Check if user profile exists in Firestore
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (!userDoc.exists() && user.displayName) {
-          // Create user profile if it doesn't exist (for Google sign-in)
-          await setDoc(doc(db, 'users', user.uid), {
-            name: user.displayName,
-            email: user.email,
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+      if (!currentUser) return;
+      void (async () => {
+        const ref = doc(db, 'users', currentUser.uid);
+        const userDoc = await getDoc(ref);
+        if (!userDoc.exists() && currentUser.displayName) {
+          await setDoc(ref, {
+            name: currentUser.displayName,
+            email: currentUser.email,
             createdAt: new Date().toISOString(),
           });
         }
-      }
-      setUser(user);
+      })().catch(error => console.error('Could not sync user profile:', error));
+    }, (error) => {
+      console.error('Could not restore authentication:', error);
       setLoading(false);
     });
 

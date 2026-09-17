@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 interface AsciiArtProps {
     className?: string;
@@ -8,7 +8,6 @@ interface AsciiArtProps {
 
 export function AsciiArt({ className = '' }: AsciiArtProps) {
     const containerRef = useRef<HTMLDivElement>(null);
-    const [asciiText, setAsciiText] = useState('');
     const mouseRef = useRef({ x: 0, y: 0, targetX: 0, targetY: 0, isOver: false });
 
     useEffect(() => {
@@ -76,7 +75,7 @@ export function AsciiArt({ className = '' }: AsciiArtProps) {
                 result += '\n';
             }
 
-            setAsciiText(result);
+            container.textContent = result;
             animationFrameId = requestAnimationFrame(render);
         };
 
@@ -99,8 +98,6 @@ export function AsciiArt({ className = '' }: AsciiArtProps) {
                 whiteSpace: 'pre',
                 letterSpacing: '2px',
             }}
-        >
-            {asciiText}
-        </div>
+        />
     );
 }

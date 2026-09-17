@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { products } from '@/lib/data';
 
+export const dynamic = 'force-dynamic';
+
 
 // Compact product list for the system prompt
 const productCatalog = products.map(p => ({

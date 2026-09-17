@@ -1,192 +1,88 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import styles from './Auth3DBackground.module.css';
 
+// Lightweight animated workshop sketches shared by sign-in and registration.
 export default function Auth3DBackground() {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const backgroundRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
-
-        // Create neural network nodes with organic distribution
-        const nodeCount = 100;
-        const points: Array<{
-            x: number;
-            y: number;
-            z: number;
-            originalX: number;
-            originalY: number;
-            originalZ: number;
-            vx: number;
-            vy: number;
-            vz: number;
-            energy: number;
-        }> = [];
-
-        // Create nodes in 3D space - wider spread
-        for (let i = 0; i < nodeCount; i++) {
-            const angle = (i / nodeCount) * Math.PI * 2;
-            const radius = 400 + Math.random() * 400; // Wider spread
-            const height = (Math.random() - 0.5) * 600; // Taller spread
-            
-            const x = Math.cos(angle) * radius + (Math.random() - 0.5) * 200;
-            const y = height + (Math.random() - 0.5) * 200;
-            const z = Math.sin(angle) * radius + (Math.random() - 0.5) * 200;
-
-            points.push({
-                x,
-                y,
-                z,
-                originalX: x,
-                originalY: y,
-                originalZ: z,
-                vx: (Math.random() - 0.5) * 0.2,
-                vy: (Math.random() - 0.5) * 0.2,
-                vz: (Math.random() - 0.5) * 0.2,
-                energy: Math.random(),
-            });
-        }
-
-        let angleY = 0;
-        let animationId: number;
-        let pulsePhase = 0;
-
-        function rotateY(point: { x: number; y: number; z: number }, angle: number) {
-            const cos = Math.cos(angle);
-            const sin = Math.sin(angle);
-            return {
-                x: point.x * cos + point.z * sin,
-                y: point.y,
-                z: -point.x * sin + point.z * cos,
-            };
-        }
-
-        function project(point: { x: number; y: number; z: number }) {
-            const perspective = 1000;
-            const scale = perspective / (perspective + point.z);
-            return {
-                x: point.x * scale + centerX,
-                y: point.y * scale + centerY,
-                scale: scale,
-            };
-        }
-
-        function animate() {
-            if (!ctx || !canvas) return;
-
-            // Clear completely - no fade trails
-            ctx.fillStyle = 'rgba(250, 250, 250, 1)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Update rotation and pulse
-            angleY += 0.002;
-            pulsePhase += 0.015;
-
-            // Update node positions with organic movement
-            points.forEach((point) => {
-                point.x += point.vx;
-                point.y += point.vy;
-                point.z += point.vz;
-
-                // Gentle pull back to original position
-                point.x += (point.originalX - point.x) * 0.01;
-                point.y += (point.originalY - point.y) * 0.01;
-                point.z += (point.originalZ - point.z) * 0.01;
-
-                // Update energy
-                point.energy = (Math.sin(pulsePhase + point.originalX * 0.01) + 1) / 2;
-            });
-
-            // Transform and project points
-            const projectedPoints = points.map((point, index) => {
-                const rotated = rotateY(point, angleY);
-                const projected = project(rotated);
-                
-                return {
-                    ...projected,
-                    z: rotated.z,
-                    index,
-                    energy: point.energy,
-                };
-            });
-
-            // Draw neural network connections with thinner lines
-            projectedPoints.forEach((point, i) => {
-                projectedPoints.forEach((otherPoint, j) => {
-                    if (i >= j) return;
-
-                    const dx = points[i].x - points[j].x;
-                    const dy = points[i].y - points[j].y;
-                    const dz = points[i].z - points[j].z;
-                    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-                    // Connect nodes within range (neural network style)
-                    if (distance < 300) {
-                        const opacity = (1 - distance / 300) * 0.3 * ((point.scale + otherPoint.scale) / 2);
-                        const lineWidth = (1 - distance / 300) * 0.8; // Thinner lines
-                        
-                        ctx.strokeStyle = `rgba(26, 26, 26, ${opacity})`;
-                        ctx.lineWidth = lineWidth;
-                        ctx.beginPath();
-                        ctx.moveTo(point.x, point.y);
-                        ctx.lineTo(otherPoint.x, otherPoint.y);
-                        ctx.stroke();
-                    }
-                });
-            });
-
-            // Draw nodes - smaller
-            projectedPoints.forEach((point) => {
-                const nodeSize = point.scale * 2 * (0.5 + point.energy * 0.5);
-                const glowSize = nodeSize * 2;
-                
-                // Outer glow
-                const gradient = ctx.createRadialGradient(
-                    point.x, point.y, 0,
-                    point.x, point.y, glowSize
-                );
-                gradient.addColorStop(0, `rgba(26, 26, 26, ${point.scale * 0.5})`);
-                gradient.addColorStop(1, 'rgba(26, 26, 26, 0)');
-                
-                ctx.fillStyle = gradient;
-                ctx.beginPath();
-                ctx.arc(point.x, point.y, glowSize, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Core node
-                ctx.fillStyle = `rgba(26, 26, 26, ${point.scale * 0.8})`;
-                ctx.beginPath();
-                ctx.arc(point.x, point.y, nodeSize, 0, Math.PI * 2);
-                ctx.fill();
-            });
-
-            animationId = requestAnimationFrame(animate);
-        }
-
-        animate();
-
-        const handleResize = () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+        const syncVisibility = () => {
+            if (backgroundRef.current) backgroundRef.current.dataset.paused = String(document.hidden);
         };
-
-        window.addEventListener('resize', handleResize);
-
-        return () => {
-            cancelAnimationFrame(animationId);
-            window.removeEventListener('resize', handleResize);
-        };
+        syncVisibility();
+        document.addEventListener('visibilitychange', syncVisibility);
+        return () => document.removeEventListener('visibilitychange', syncVisibility);
     }, []);
 
-    return <canvas ref={canvasRef} className="auth-3d-background" />;
+    return (
+        <div ref={backgroundRef} className={styles.background} aria-hidden="true">
+            <svg className={styles.left} viewBox="0 0 320 760" fill="none" focusable="false">
+                <g className={styles.traces}>
+                    <path d="M-20 70H70L115 115V220H235L290 275V380H340M-20 690H75L125 640V525H215V420H340" />
+                    <path d="M-20 100H52L85 133V252H217L260 295V350H340M-20 720H90L155 655V553H245V451H340" />
+                    <circle cx="115" cy="115" r="5" /><circle cx="125" cy="640" r="5" />
+                </g>
+                <path className={styles.signal} d="M-20 70H70L115 115V220H235L290 275V380H340" />
+                <path className={`${styles.signal} ${styles.delayed}`} d="M340 451H245V553H155V655L90 720H-20" />
+                <g className={styles.float}>
+                    <g transform="translate(58 175) rotate(-8 85 85)">
+                        <rect x="7" y="8" width="174" height="168" fill="#171714" />
+                        <rect width="174" height="168" fill="#ffe87a" stroke="#171714" strokeWidth="2.5" />
+                        <g stroke="#171714" strokeWidth="3" strokeLinecap="square">
+                            <path d="M51 38V23M75 38V23M99 38V23M123 38V23M51 112V127M75 112V127M99 112V127M123 112V127M43 49H28M43 73H28M43 97H28M131 49H146M131 73H146M131 97H146" />
+                            <rect x="43" y="38" width="88" height="74" fill="#f4ece4" />
+                            <path d="M71 59L60 74L71 89M103 59L114 74L103 89M92 57L82 91" />
+                        </g>
+                        <text x="87" y="153" textAnchor="middle" className={styles.label}>MAKE IT WORK.</text>
+                    </g>
+                </g>
+                <g className={`${styles.float} ${styles.slow}`}>
+                    <g transform="translate(78 532) rotate(7 76 58)">
+                        <rect x="5" y="6" width="156" height="112" fill="#171714" />
+                        <rect width="156" height="112" fill="#d5e7ee" stroke="#171714" strokeWidth="2.5" />
+                        <path d="M52 29L29 48L52 67M103 29L126 48L103 67M86 23L69 74" stroke="#171714" strokeWidth="4" />
+                        <text x="78" y="97" textAnchor="middle" className={styles.label}>A LITTLE CODE.</text>
+                    </g>
+                </g>
+                <path className={styles.spark} d="M253 110L243 140L261 136L248 163L281 127L261 131L273 106Z" fill="#ef7196" stroke="#171714" strokeWidth="2" />
+            </svg>
+
+            <svg className={styles.right} viewBox="0 0 320 760" fill="none" focusable="false">
+                <g className={styles.traces}>
+                    <path d="M340 105H244L208 141V272H91L35 328V425H-20M340 706H221L177 662V547H82V457H-20" />
+                    <path d="M340 136H260L239 157V303H108L66 345V395H-20M340 736H206L147 677V577H52V487H-20" />
+                    <circle cx="208" cy="141" r="5" /><circle cx="177" cy="662" r="5" />
+                </g>
+                <path className={`${styles.signal} ${styles.delayed}`} d="M340 105H244L208 141V272H91L35 328V425H-20" />
+                <path className={styles.signal} d="M-20 487H52V577H147V677L206 736H340" />
+                <g className={`${styles.float} ${styles.slow}`}>
+                    <g transform="translate(97 146) rotate(8 65 65)">
+                        <rect x="5" y="6" width="142" height="140" fill="#171714" />
+                        <rect width="142" height="140" fill="#f3bfd0" stroke="#171714" strokeWidth="2.5" />
+                        <g className={styles.wifi} stroke="#171714" strokeWidth="4" strokeLinecap="round">
+                            <path d="M31 54Q71 17 111 54" /><path d="M45 69Q71 45 97 69" /><path d="M59 83Q71 72 83 83" />
+                        </g>
+                        <circle cx="71" cy="97" r="5" fill="#171714" />
+                        <text x="71" y="126" textAnchor="middle" className={styles.label}>ALL CONNECTED.</text>
+                    </g>
+                </g>
+                <g className={styles.float}>
+                    <g transform="translate(74 505) rotate(-6 86 85)">
+                        <rect x="6" y="7" width="173" height="167" fill="#171714" />
+                        <rect width="173" height="167" fill="#dfe9d9" stroke="#171714" strokeWidth="2.5" />
+                        <g stroke="#171714" strokeWidth="3">
+                            <path d="M86 44V29" /><circle cx="86" cy="24" r="5" fill="#ef7196" />
+                            <rect x="37" y="45" width="99" height="72" rx="10" fill="#f4ece4" />
+                            <path d="M37 69H26V93H37M136 69H147V93H136M71 100H102" />
+                        </g>
+                        <g className={styles.eyes} fill="#171714"><circle cx="66" cy="75" r="7" /><circle cx="108" cy="75" r="7" /></g>
+                        <text x="86" y="150" textAnchor="middle" className={styles.label}>A BIG IDEA.</text>
+                    </g>
+                </g>
+                <path className={styles.spark} d="M51 380L57 397L75 403L57 409L51 427L45 409L27 403L45 397Z" fill="#ffe87a" stroke="#171714" strokeWidth="2" />
+            </svg>
+        </div>
+    );
 }

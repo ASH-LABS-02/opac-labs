@@ -83,7 +83,7 @@ export default function Cart() {
 
     if (authLoading || loading) {
         return (
-            <main>
+            <main className="cart-page">
                 <div className="container">
                     <div className="empty-cart">
                         <p style={{ color: '#bbb', fontSize: '14px' }}>Loading...</p>
@@ -95,12 +95,13 @@ export default function Cart() {
 
     if (cart.length === 0) {
         return (
-            <main>
+            <main className="cart-page">
                 <div className="container">
                     <div className="empty-cart">
-                        <p>Your cart is empty</p>
-                        <Link href="/catalog" className="btn-primary" style={{ display: 'inline-block', width: 'auto', textDecoration: 'none' }}>
-                            Browse products
+                        <h1>Your next build<br />starts here.</h1>
+                        <p>Your cart is empty. Explore our projects or use OPAC AI to plan your build.</p>
+                        <Link href="/build-project" className="btn-primary" style={{ display: 'inline-block', width: 'auto', textDecoration: 'none' }}>
+                            Build with OPAC AI ↗
                         </Link>
                     </div>
                 </div>
@@ -109,14 +110,14 @@ export default function Cart() {
     }
 
     return (
-        <main>
+        <main className="cart-page">
             <div className="container">
                 <div className="cart-header">
                     <h1>Your cart</h1>
-                    <Link href="/catalog" className="continue-link">Continue shopping</Link>
+                    <Link href="/build-project" className="continue-link">Continue building →</Link>
                 </div>
                 
-                <table className="cart-table">
+                <div className="cart-table-scroll"><table className="cart-table">
                     <thead>
                         <tr>
                             <th>PRODUCT</th>
@@ -167,7 +168,7 @@ export default function Cart() {
                             </tr>
                         ))}
                     </tbody>
-                </table>
+                </table></div>
                 
                 <div className="cart-summary">
                     <div className="cart-total">

@@ -1,53 +1,17 @@
 'use client';
-
-import { useEffect, useRef, useState } from 'react';
-
-interface ScrollFadeInProps {
-    children: React.ReactNode;
-    className?: string;
-    delay?: number;
-}
-
-export default function ScrollFadeIn({ children, className = '', delay = 0 }: ScrollFadeInProps) {
-    const [isVisible, setIsVisible] = useState(false);
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+interface Props { children: ReactNode; className?: string; delay?: number; }
+export default function ScrollFadeIn({ children, className = '', delay = 0 }: Props) {
     const ref = useRef<HTMLDivElement>(null);
-
+    const [visible, setVisible] = useState(false);
     useEffect(() => {
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting) {
-                    // Fade in when scrolling into view
-                    setTimeout(() => {
-                        setIsVisible(true);
-                    }, delay);
-                } else {
-                    // Fade out when scrolling out of view
-                    setIsVisible(false);
-                }
-            },
-            {
-                threshold: 0.1,
-                rootMargin: '0px 0px -100px 0px'
-            }
-        );
-
-        if (ref.current) {
-            observer.observe(ref.current);
-        }
-
-        return () => {
-            if (ref.current) {
-                observer.unobserve(ref.current);
-            }
-        };
-    }, [delay]);
-
-    return (
-        <div
-            ref={ref}
-            className={`scroll-fade-in ${isVisible ? 'visible' : ''} ${className}`}
-        >
-            {children}
-        </div>
-    );
+        const element = ref.current;
+        if (!element || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        const observer = new IntersectionObserver(([entry]) => {
+            if (entry.isIntersecting) { setVisible(true); observer.disconnect(); }
+        }, { threshold: 0.05 });
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, []);
+    return <div ref={ref} className={`scroll-fade-in ${visible ? 'visible' : ''} ${className}`} style={{ transitionDelay: `${Math.min(delay, 100)}ms` }}>{children}</div>;
 }
