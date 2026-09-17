@@ -2673,12 +2673,10 @@ button, input, select, textarea { font: inherit; }
 .manga-theme-page::before, .manga-theme-page::after,
 .manga-timeline-page::before, .manga-timeline-page::after,
 .bp-manga-page::before { display: none !important; }
-.action-burst { animation: none !important; }
-.panel:hover { transform: none !important; box-shadow: none !important; }
 .scroll-fade-in, .scroll-fade-in-advanced { opacity: 1; transform: none; }
 .manga-theme-page .massive-text,
 .manga-timeline-page .massive-text,
-.bp-manga-page .massive-text { color: #171714; text-shadow: none !important; letter-spacing: -.05em; line-height: 1.05; }
+.bp-manga-page .massive-text { color: #171714; letter-spacing: -.05em; line-height: 1.05; }
 .manga-timeline-page .project-card { cursor: default; }
 .manga-timeline-page .project-card:hover { transform: none !important; box-shadow: 8px 8px 0 #111; }
 .card-action-btn { display: inline-flex; text-decoration: none; }
