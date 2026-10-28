@@ -6,21 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "verify:production": "node scripts/verify-production-config.mjs"
   },
   "dependencies": {
-    "animejs": "^4.5.0",
-    "dotted-map": "^3.1.0",
     "firebase": "^12.10.0",
-    "firebase-admin": "^13.7.0",
-    "framer-motion": "^12.42.2",
-    "jspdf": "^4.2.0",
-    "next": "15.3.0",
-    "next-auth": "^5.0.0-beta.30",
-    "next-themes": "^0.4.6",
+    "firebase-admin": "^14.5.0",
+    "next": "^15.5.28",
     "openai": "^6.29.0",
     "react": "19.0.0",
-    "react-dom": "19.0.0"
+    "react-dom": "19.0.0",
+    "redis": "^6.3.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -33,5 +29,9 @@
     "eslint-config-next": "15.3.0",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.6",
+    "postcss": "^8.5.32"
   }
 }

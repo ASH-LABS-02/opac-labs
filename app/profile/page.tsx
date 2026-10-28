@@ -37,18 +37,23 @@ export default function Profile() {
     const handleSaveProfile = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!auth.currentUser) return;
+        if (!displayName.trim() || displayName.length > 120 || phoneNumber.length > 30) {
+            setSaveError('Enter a name and keep the phone number under 30 characters.');
+            return;
+        }
         setIsSaving(true);
         setSaveSuccess('');
         setSaveError('');
 
         try {
             await updateProfile(auth.currentUser, {
-                displayName: displayName
+                displayName: displayName.trim()
             });
 
             await setDoc(doc(db, 'users', auth.currentUser.uid), {
-                name: displayName,
-                phone: phoneNumber,
+                name: displayName.trim(),
+                email: auth.currentUser.email,
+                phone: phoneNumber.trim(),
                 updatedAt: new Date().toISOString()
             }, { merge: true });
 
@@ -101,7 +106,7 @@ export default function Profile() {
                         MY PROFILE
                     </h1>
                     <p style={{ fontFamily: 'var(--font-kalam), cursive', fontSize: '1.1rem', color: '#444', margin: 0 }}>
-                        Manage your account details and orders
+                        Manage your account and project briefs
                     </p>
                 </div>
 
@@ -196,6 +201,7 @@ export default function Profile() {
                                     value={displayName}
                                     onChange={(e) => setDisplayName(e.target.value)}
                                     placeholder="Your name"
+                                    maxLength={120}
                                     required
                                 />
                             </div>
@@ -210,6 +216,7 @@ export default function Profile() {
                                     value={phoneNumber}
                                     onChange={(e) => setPhoneNumber(e.target.value)}
                                     placeholder="+91 98765 43210"
+                                    maxLength={30}
                                 />
                             </div>
 
@@ -226,8 +233,8 @@ export default function Profile() {
 
                     {/* Quick Navigation Action Links */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <Link href="/orders" className="manga-btn-secondary" style={{ width: '100%', justifyContent: 'space-between' }}>
-                            <span>MY ORDERS & INVOICES</span>
+                        <Link href="/my-projects" className="manga-btn-secondary" style={{ width: '100%', justifyContent: 'space-between' }}>
+                            <span>MY PROJECTS</span>
                             <span>→</span>
                         </Link>
 

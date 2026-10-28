@@ -6,6 +6,20 @@ import Link from 'next/link';
 import Auth3DBackground from '@/components/Auth3DBackground';
 import { useFirebaseAuth } from '@/contexts/FirebaseAuthContext';
 
+function safePostLoginPath() {
+    const requested = localStorage.getItem('redirectAfterLogin');
+    localStorage.removeItem('redirectAfterLogin');
+    if (!requested?.startsWith('/') || requested.startsWith('//') || requested.includes('\\')) return '/';
+    try {
+        const target = new URL(requested, window.location.origin);
+        return target.origin === window.location.origin && target.pathname !== '/login'
+            ? target.pathname + target.search + target.hash
+            : '/';
+    } catch {
+        return '/';
+    }
+}
+
 export default function Login() {
     const router = useRouter();
     const { signInWithGoogle, signInWithEmail } = useFirebaseAuth();
@@ -22,12 +36,9 @@ export default function Login() {
         try {
             await signInWithEmail(email, password);
             
-            const redirectUrl = localStorage.getItem('redirectAfterLogin') || '/';
-            localStorage.removeItem('redirectAfterLogin');
-            router.push(redirectUrl);
-        } catch (error: unknown) {
-            const err = error as { message?: string };
-            setError(err.message || 'Failed to sign in');
+            router.push(safePostLoginPath());
+        } catch {
+            setError('Could not sign in. Check your details and try again.');
         } finally {
             setIsLoading(false);
         }
@@ -41,15 +52,13 @@ export default function Login() {
             await signInWithGoogle();
             
             setIsLoading(true);
-            const redirectUrl = localStorage.getItem('redirectAfterLogin') || '/';
-            localStorage.removeItem('redirectAfterLogin');
-            router.push(redirectUrl);
+            router.push(safePostLoginPath());
         } catch (error: unknown) {
-            const err = error as { code?: string; message?: string };
+            const err = error as { code?: string };
             if (err.code === 'auth/popup-blocked') {
                 setError('Popup blocked by your browser. Please allow popups for this site and try again.');
             } else if (err.code !== 'auth/cancelled-popup-request' && err.code !== 'auth/popup-closed-by-user') {
-                setError(err.message || 'Failed to sign in with Google');
+                setError('Could not sign in with Google. Please try again.');
             }
         } finally {
             setIsLoading(false);

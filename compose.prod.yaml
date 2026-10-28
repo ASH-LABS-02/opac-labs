@@ -1,0 +1,113 @@
+name: opac-production
+
+x-logging: &bounded-logs
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  edge:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?Set SITE_DOMAIN in production.env}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?Set ADMIN_DOMAIN in production.env}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in production.env}
+    volumes:
+      - ./deploy/Caddyfile.production:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+      admin:
+        condition: service_started
+    networks: [front]
+    logging: *bounded-logs
+
+  web:
+    image: opac-labs-web:production
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+      args:
+        OPAC_PRODUCTION_BUILD: "true"
+        NEXT_PUBLIC_FIREBASE_API_KEY: ${FIREBASE_API_KEY:?Set FIREBASE_API_KEY}
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${FIREBASE_AUTH_DOMAIN:?Set FIREBASE_AUTH_DOMAIN}
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:?Set FIREBASE_PROJECT_ID}
+        NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${FIREBASE_STORAGE_BUCKET:?Set FIREBASE_STORAGE_BUCKET}
+        NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${FIREBASE_MESSAGING_SENDER_ID:?Set FIREBASE_MESSAGING_SENDER_ID}
+        NEXT_PUBLIC_FIREBASE_APP_ID: ${FIREBASE_APP_ID:?Set FIREBASE_APP_ID}
+        NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY: ${FIREBASE_APPCHECK_SITE_KEY:?Set FIREBASE_APPCHECK_SITE_KEY}
+        NEXT_PUBLIC_USE_FIREBASE_EMULATORS: "false"
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:?Set FIREBASE_PROJECT_ID}
+      FIREBASE_SERVICE_ACCOUNT_FILE: /run/secrets/firebase_service_account
+      FIREBASE_APPCHECK_REQUIRED: "true"
+      ADMIN_MFA_REQUIRED: "true"
+      REDIS_URL: redis://redis:6379
+      TRUST_PROXY_HEADERS: "true"
+      CONTACT_RETENTION_DAYS: ${CONTACT_RETENTION_DAYS:-180}
+      PROJECT_RETENTION_DAYS: ${PROJECT_RETENTION_DAYS:-365}
+      CHAT_RETENTION_DAYS: ${CHAT_RETENTION_DAYS:-180}
+    secrets: [firebase_service_account]
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks: [front, private]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    logging: *bounded-logs
+
+  admin:
+    image: opac-labs-admin:production
+    build:
+      context: ./admin-app
+      dockerfile: Dockerfile.production
+      args:
+        VITE_FIREBASE_API_KEY: ${FIREBASE_API_KEY:?Set FIREBASE_API_KEY}
+        VITE_FIREBASE_AUTH_DOMAIN: ${FIREBASE_AUTH_DOMAIN:?Set FIREBASE_AUTH_DOMAIN}
+        VITE_FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:?Set FIREBASE_PROJECT_ID}
+        VITE_FIREBASE_STORAGE_BUCKET: ${FIREBASE_STORAGE_BUCKET:?Set FIREBASE_STORAGE_BUCKET}
+        VITE_FIREBASE_MESSAGING_SENDER_ID: ${FIREBASE_MESSAGING_SENDER_ID:?Set FIREBASE_MESSAGING_SENDER_ID}
+        VITE_FIREBASE_APP_ID: ${FIREBASE_APP_ID:?Set FIREBASE_APP_ID}
+        VITE_FIREBASE_APPCHECK_SITE_KEY: ${ADMIN_APPCHECK_SITE_KEY:?Set ADMIN_APPCHECK_SITE_KEY}
+        VITE_ADMIN_MFA_REQUIRED: "true"
+    restart: unless-stopped
+    networks: [front]
+    logging: *bounded-logs
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks: [private]
+    logging: *bounded-logs
+
+networks:
+  front: {}
+  private:
+    internal: true
+
+secrets:
+  firebase_service_account:
+    file: ${FIREBASE_SERVICE_ACCOUNT_PATH:?Set FIREBASE_SERVICE_ACCOUNT_PATH}
+
+volumes:
+  caddy-data:
+  caddy-config:

@@ -38,20 +38,9 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+      // A stored Firebase session must not restore a still-unverified account.
+      setUser(currentUser && (currentUser.emailVerified || process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') ? currentUser : null);
       setLoading(false);
-      if (!currentUser) return;
-      void (async () => {
-        const ref = doc(db, 'users', currentUser.uid);
-        const userDoc = await getDoc(ref);
-        if (!userDoc.exists() && currentUser.displayName) {
-          await setDoc(ref, {
-            name: currentUser.displayName,
-            email: currentUser.email,
-            createdAt: new Date().toISOString(),
-          });
-        }
-      })().catch(error => console.error('Could not sync user profile:', error));
     }, (error) => {
       console.error('Could not restore authentication:', error);
       setLoading(false);
@@ -84,7 +73,7 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
       const result = await signInWithEmailAndPassword(auth, email, password);
       
       // Check if email is verified
-      if (!result.user.emailVerified) {
+      if (!result.user.emailVerified && process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS !== 'true') {
         await firebaseSignOut(auth);
         throw new Error('Please verify your email before signing in. Check your inbox for the verification link.');
       }
@@ -111,7 +100,9 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
       });
       
       // Send verification email
-      await sendEmailVerification(result.user);
+      if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS !== 'true') {
+        await sendEmailVerification(result.user);
+      }
       
       // Sign out the user until they verify their email
       await firebaseSignOut(auth);

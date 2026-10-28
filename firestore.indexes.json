@@ -1,0 +1,8 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    { "collectionGroup": "projectRequests", "fieldPath": "expiresAt", "ttl": true, "indexes": [] },
+    { "collectionGroup": "contactMessages", "fieldPath": "expiresAt", "ttl": true, "indexes": [] },
+    { "collectionGroup": "sessions", "fieldPath": "expiresAt", "ttl": true, "indexes": [] }
+  ]
+}

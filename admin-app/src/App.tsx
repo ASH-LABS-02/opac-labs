@@ -1,293 +1,220 @@
-import { useState, useEffect } from 'react';
-import { db } from './firebase';
-import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+import { auth, db } from './firebase';
+import { collection, doc, getDocs, limit, orderBy, query, updateDoc } from 'firebase/firestore';
+import { getMultiFactorResolver, multiFactor, onAuthStateChanged, signInWithEmailAndPassword, signOut, TotpMultiFactorGenerator, type MultiFactorError, type MultiFactorResolver, type TotpSecret, type User } from 'firebase/auth';
+import './App.css';
 
-const ADMIN_PASSWORD = 'opacadmin123';
-const CATEGORIES = ['arduino','esp','sensors','cables','essentials','bestselling-kits','bestseller-products','student-projects'];
-
-type Product = {
-  id: number; name: string; category: string; price: number;
-  originalPrice: number | null; discount: number; image: string;
-  description: string; specs: string[]; featured: boolean; stock: string;
-  _new?: boolean;
+type Inbox = 'projectRequests' | 'contactMessages';
+type RecordItem = {
+  id: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  projectType?: string;
+  description?: string;
+  budget?: string;
+  timeline?: string;
+  message?: string;
+  status?: string;
+  createdAt?: { toDate(): Date };
 };
 
-const td: React.CSSProperties = { padding: '10px 12px', verticalAlign: 'middle', fontSize: 13 };
-const inp: React.CSSProperties = { padding: '6px 8px', border: '1px solid #ddd', fontSize: 13, width: 90, outline: 'none' };
-const btn: React.CSSProperties = { padding: '6px 12px', border: '1px solid #ddd', background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 500 };
+const serviceLabels: Record<string, string> = {
+  software: 'Software', hardware: 'Hardware', hybrid: 'Software + hardware', iot: 'IoT',
+  robotics: 'Robotics', automation: 'Automation', embedded: 'Embedded systems', custom: 'Other',
+};
+const budgetLabels: Record<string, string> = {
+  'not-sure': 'Not sure yet', 'under-5k': 'Under ₹5,000', '5k-10k': '₹5,000–₹10,000',
+  '10k-20k': '₹10,000–₹20,000', '20k-plus': '₹20,000+',
+};
+const timelineLabels: Record<string, string> = {
+  '1-week': 'Within 1 week', '2-weeks': 'Within 2 weeks',
+  '1-month': 'Within 1 month', flexible: 'Flexible',
+};
 
-function toDirectImageUrl(url: string): string {
-  const match = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
-  if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
-  return url;
-}
+const requireAdminMfa = import.meta.env.VITE_ADMIN_MFA_REQUIRED === 'true';
 
-function PasswordGate({ onAuth }: { onAuth: () => void }) {
-  const [pw, setPw] = useState('');
-  const [err, setErr] = useState(false);
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (pw === ADMIN_PASSWORD) onAuth();
-    else { setErr(true); setPw(''); }
-  };
-  return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9f9f9' }}>
-      <form onSubmit={submit} style={{ background: '#fff', padding: '40px', border: '1px solid #e5e5e5', width: 320 }}>
-        <h2 style={{ margin: '0 0 24px', fontSize: 20, fontWeight: 700 }}>Admin Access</h2>
-        <input type="password" value={pw} onChange={e => { setPw(e.target.value); setErr(false); }}
-          placeholder="Enter admin password" autoFocus
-          style={{ width: '100%', padding: '10px 12px', border: `1px solid ${err ? '#e55' : '#ddd'}`, fontSize: 14, marginBottom: 8, boxSizing: 'border-box' }} />
-        {err && <p style={{ color: '#e55', fontSize: 13, margin: '0 0 12px' }}>Incorrect password</p>}
-        <button type="submit" style={{ width: '100%', padding: '10px', background: '#111', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>Enter</button>
-      </form>
-    </div>
-  );
-}
+function AdminGate({ enrollmentUser }: { enrollmentUser: User | null }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [resolver, setResolver] = useState<MultiFactorResolver | null>(null);
+  const [secret, setSecret] = useState<TotpSecret | null>(null);
+  const [setupUnavailable, setSetupUnavailable] = useState(false);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
-function ProductRow({ product, onSave }: { product: Product; onSave: (p: Product) => Promise<void> }) {
-  const [editing, setEditing] = useState(false);
-  const [data, setData] = useState({ ...product });
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const set = (field: string, val: string | number | null) => setData(d => ({ ...d, [field]: val }));
+  useEffect(() => {
+    if (!enrollmentUser) { setSecret(null); setSetupUnavailable(false); return; }
+    setError(''); setSetupUnavailable(false);
+    if (multiFactor(enrollmentUser).enrolledFactors.some(factor => factor.factorId === TotpMultiFactorGenerator.FACTOR_ID)) {
+      setSetupUnavailable(true);
+      setError('An authenticator is already enrolled. Sign out and sign in again to use it.');
+      return;
+    }
+    let cancelled = false;
+    multiFactor(enrollmentUser).getSession()
+      .then(session => TotpMultiFactorGenerator.generateSecret(session))
+      .then(nextSecret => { if (!cancelled) setSecret(nextSecret); })
+      .catch(() => { if (!cancelled) { setSetupUnavailable(true); setError('Could not start authenticator setup. Ask the Firebase project owner to enable TOTP MFA.'); } });
+    return () => { cancelled = true; };
+  }, [enrollmentUser]);
 
-  const handleSave = async () => {
-    setSaving(true);
-    await onSave({ ...data, image: toDirectImageUrl(data.image) });
-    setSaving(false); setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-    setEditing(false);
-  };
-
-  return (
-    <tr style={{ borderBottom: '1px solid #f0f0f0', background: editing ? '#fffef5' : '#fff' }}>
-      <td style={td}>{product.id}</td>
-      <td style={{ ...td, maxWidth: 80 }}>
-        <img src={data.image || ''} alt={data.name} style={{ width: 60, height: 60, objectFit: 'contain', border: '1px solid #eee' }} />
-      </td>
-      <td style={td}>
-        <span style={{ fontWeight: 500, fontSize: 13 }}>{product.name}</span><br />
-        <span style={{ fontSize: 11, color: '#999' }}>{product.category}</span>
-      </td>
-      <td style={td}>{editing ? <input type="number" value={data.price} onChange={e => set('price', Number(e.target.value))} style={inp} /> : <span style={{ fontWeight: 600 }}>₹{data.price}</span>}</td>
-      <td style={td}>{editing
-        ? <input type="number" value={data.originalPrice ?? ''} onChange={e => set('originalPrice', e.target.value ? Number(e.target.value) : null)} style={inp} placeholder="—" />
-        : <span style={{ color: '#999', textDecoration: 'line-through', fontSize: 12 }}>{data.originalPrice ? `₹${data.originalPrice}` : '—'}</span>}
-      </td>
-      <td style={td}>{editing
-        ? <input type="number" value={data.discount} onChange={e => set('discount', Number(e.target.value))} style={{ ...inp, width: 60 }} />
-        : <span style={{ background: data.discount > 0 ? '#111' : '#eee', color: data.discount > 0 ? '#fff' : '#999', padding: '2px 8px', fontSize: 11, borderRadius: 2 }}>{data.discount > 0 ? `${data.discount}%` : '—'}</span>}
-      </td>
-      <td style={{ ...td, maxWidth: 260 }}>{editing
-        ? <input value={data.image} onChange={e => set('image', e.target.value)} style={{ ...inp, width: '100%', fontSize: 11 }} placeholder="Image URL" />
-        : <span style={{ fontSize: 11, color: '#666', wordBreak: 'break-all' }}>{data.image.slice(0, 50)}{data.image.length > 50 ? '…' : ''}</span>}
-      </td>
-      <td style={td}>
-        {editing ? (
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button onClick={handleSave} disabled={saving} style={{ ...btn, background: '#111', color: '#fff' }}>{saving ? '…' : 'Save'}</button>
-            <button onClick={() => { setData({ ...product }); setEditing(false); }} style={btn}>Cancel</button>
-          </div>
-        ) : (
-          <button onClick={() => setEditing(true)} style={btn}>{saved ? '✓ Saved' : 'Edit'}</button>
-        )}
-      </td>
-    </tr>
-  );
-}
-
-const emptyForm = { name: '', category: 'arduino', price: '', originalPrice: '', discount: '0', image: '', description: '', specs: '', featured: false, stock: 'in-stock' };
-
-function AddProductPanel({ onAdd }: { onAdd: (p: Omit<Product, 'id'>) => Promise<void> }) {
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ ...emptyForm });
-  const [saving, setSaving] = useState(false);
-  const [done, setDone] = useState(false);
-  const set = (k: string, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.name || !form.price || !form.image) return;
-    setSaving(true);
-    await onAdd({
-      name: form.name, category: form.category,
-      price: Number(form.price),
-      originalPrice: form.originalPrice ? Number(form.originalPrice) : null,
-      discount: Number(form.discount),
-      image: toDirectImageUrl(form.image),
-      description: form.description,
-      specs: form.specs.split('\n').map(s => s.trim()).filter(Boolean),
-      featured: form.featured, stock: form.stock,
-    });
-    setSaving(false); setDone(true);
-    setForm({ ...emptyForm });
-    setTimeout(() => setDone(false), 3000);
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault(); setError(''); setBusy(true);
+    try {
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      if (!credential.user.emailVerified || (await credential.user.getIdTokenResult(true)).claims.admin !== true) {
+        await signOut(auth);
+        throw new Error('This account does not have admin access.');
+      }
+    } catch (cause) {
+      if (cause instanceof Error && 'code' in cause && cause.code === 'auth/multi-factor-auth-required') {
+        const nextResolver = getMultiFactorResolver(auth, cause as MultiFactorError);
+        if (nextResolver.hints.some(hint => hint.factorId === TotpMultiFactorGenerator.FACTOR_ID)) {
+          setResolver(nextResolver);
+          setError('');
+        } else setError('This account needs a supported authenticator factor.');
+      } else setError('Could not sign in. Check your details and try again.');
+      setPassword('');
+    } finally { setBusy(false); }
   };
 
-  const field = (label: string, key: string, type = 'text', placeholder = '') => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#555' }}>{label}</label>
-      <input type={type} value={form[key as keyof typeof emptyForm] as string}
-        onChange={e => set(key, e.target.value)} placeholder={placeholder}
-        style={{ padding: '8px 10px', border: '1px solid #ddd', fontSize: 13, outline: 'none' }} />
-    </div>
-  );
+  const completeChallenge = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!resolver) return;
+    const hint = resolver.hints.find(factor => factor.factorId === TotpMultiFactorGenerator.FACTOR_ID);
+    if (!hint) return;
+    setBusy(true); setError('');
+    try {
+      await resolver.resolveSignIn(TotpMultiFactorGenerator.assertionForSignIn(hint.uid, code.trim()));
+      setResolver(null); setCode('');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'The authenticator code was not accepted.');
+    } finally { setBusy(false); }
+  };
 
-  return (
-    <div style={{ background: '#fff', border: '1px solid #e5e5e5', marginBottom: 24 }}>
-      <button onClick={() => setOpen(o => !o)}
-        style={{ width: '100%', padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 14, fontWeight: 700 }}>
-        <span>+ Add New Product</span>
-        <span style={{ fontSize: 18, color: '#999' }}>{open ? '−' : '+'}</span>
-      </button>
-      {open && (
-        <form onSubmit={handleSubmit} style={{ padding: '0 20px 24px', borderTop: '1px solid #f0f0f0' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginTop: 20 }}>
-            {field('Product Name *', 'name', 'text', 'e.g. Arduino Uno R3')}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#555' }}>Category *</label>
-              <select value={form.category} onChange={e => set('category', e.target.value)}
-                style={{ padding: '8px 10px', border: '1px solid #ddd', fontSize: 13, outline: 'none', background: '#fff' }}>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            {field('Price (₹) *', 'price', 'number', '499')}
-            {field('Original Price (₹)', 'originalPrice', 'number', '599')}
-            {field('Discount %', 'discount', 'number', '0')}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#555' }}>Stock</label>
-              <select value={form.stock} onChange={e => set('stock', e.target.value)}
-                style={{ padding: '8px 10px', border: '1px solid #ddd', fontSize: 13, outline: 'none', background: '#fff' }}>
-                <option value="in-stock">In Stock</option>
-                <option value="out-of-stock">Out of Stock</option>
-              </select>
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, gridColumn: '1 / -1' }}>
-              <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#555' }}>Image URL *</label>
-              <input value={form.image} onChange={e => set('image', e.target.value)} placeholder="https://..."
-                style={{ padding: '8px 10px', border: '1px solid #ddd', fontSize: 13, outline: 'none' }} />
-              {form.image && <img src={form.image} alt="preview" style={{ marginTop: 8, width: 80, height: 80, objectFit: 'contain', border: '1px solid #eee' }} />}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#555' }}>Description</label>
-              <textarea value={form.description} onChange={e => set('description', e.target.value)} rows={3}
-                style={{ padding: '8px 10px', border: '1px solid #ddd', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit' }} />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#555' }}>Specs (one per line)</label>
-              <textarea value={form.specs} onChange={e => set('specs', e.target.value)} rows={3} placeholder={'ATmega328P\n14 digital pins'}
-                style={{ padding: '8px 10px', border: '1px solid #ddd', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit' }} />
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 20 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
-              <input type="checkbox" checked={form.featured} onChange={e => set('featured', e.target.checked)} />
-              Featured product
-            </label>
-            <button type="submit" disabled={saving}
-              style={{ padding: '10px 28px', background: '#111', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-              {saving ? 'Adding…' : done ? '✓ Added!' : 'Add Product'}
-            </button>
-          </div>
+  const enrollAuthenticator = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!enrollmentUser || !secret) return;
+    setBusy(true); setError('');
+    try {
+      await multiFactor(enrollmentUser).enroll(TotpMultiFactorGenerator.assertionForEnrollment(secret, code.trim()), 'OPAC admin');
+      setCode('');
+      await signOut(auth);
+      setError('Authenticator added. Sign in again and enter a fresh code.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not enroll the authenticator.');
+    } finally { setBusy(false); }
+  };
+  return <main className="admin-login">
+    <div className="login-card">
+      <span className="eyebrow">OPAC LABS / PRIVATE WORKSPACE</span>
+      <h1>Project desk<span>.</span></h1>
+      {enrollmentUser ? <>
+        <p>Secure this admin account with an authenticator app. Add a time based account using this setup key, then enter its six digit code.</p>
+        {secret ? <form onSubmit={enrollAuthenticator}>
+          <div className="setup-key" aria-label="Authenticator setup key">{secret.secretKey}</div>
+          <label>Authenticator code<input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} onChange={event => setCode(event.target.value)} required /></label>
+          <button className="primary" disabled={busy}>{busy ? 'Setting up…' : 'Enable authenticator'}</button>
+        </form> : !setupUnavailable && <p>Preparing authenticator setup…</p>}
+        <button className="secondary" type="button" onClick={() => signOut(auth)}>Sign out</button>
+      </> : resolver ? <>
+        <p>Enter the six digit code from your authenticator app.</p>
+        <form onSubmit={completeChallenge}>
+          <label>Authenticator code<input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} onChange={event => setCode(event.target.value)} required autoFocus /></label>
+          <button className="primary" disabled={busy}>{busy ? 'Verifying…' : 'Verify and sign in'}</button>
         </form>
-      )}
+        <button className="secondary" type="button" onClick={() => { setResolver(null); setCode(''); setError(''); }}>Use another account</button>
+      </> : <>
+        <p>Sign in to review briefs and messages.</p>
+        <form onSubmit={submit}>
+          <label>Email<input type="email" value={email} onChange={event => setEmail(event.target.value)} autoComplete="username" required /></label>
+          <label>Password<input type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="current-password" required /></label>
+          <button className="primary" disabled={busy}>{busy ? 'Signing in…' : 'Enter project desk ↗'}</button>
+        </form>
+      </>}
+      {error && <p className="error" role="alert">{error}</p>}
     </div>
-  );
+  </main>;
 }
 
 export default function App() {
+  const [checking, setChecking] = useState(true);
   const [authed, setAuthed] = useState(false);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [filter, setFilter] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [tab, setTab] = useState<'products' | 'add'>('products');
+  const [enrollmentUser, setEnrollmentUser] = useState<User | null>(null);
+  const [tab, setTab] = useState<Inbox>('projectRequests');
+  const [rows, setRows] = useState<RecordItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => onAuthStateChanged(auth, async user => {
+    if (!user) { setAuthed(false); setEnrollmentUser(null); setChecking(false); return; }
+    try {
+      const token = await user.getIdTokenResult(true);
+      const isAdmin = user.emailVerified && token.claims.admin === true;
+      const secondFactor = (token.claims.firebase as { sign_in_second_factor?: string } | undefined)?.sign_in_second_factor;
+      const allowed = isAdmin && (!requireAdminMfa || secondFactor === 'totp');
+      setAuthed(allowed);
+      setEnrollmentUser(isAdmin && !allowed ? user : null);
+      if (!isAdmin) await signOut(auth);
+    } catch { setAuthed(false); setEnrollmentUser(null); }
+    setChecking(false);
+  }), []);
 
   useEffect(() => {
     if (!authed) return;
-    getDocs(collection(db, 'products')).then(snap => {
-      const result: Product[] = [];
-      snap.forEach(d => result.push({ ...d.data() as Product, id: Number(d.id) }));
-      result.sort((a, b) => a.id - b.id);
-      setProducts(result);
-    }).catch(() => {});
-  }, [authed]);
+    let active = true;
+    setLoading(true); setError('');
+    getDocs(query(collection(db, tab), orderBy('createdAt', 'desc'), limit(100))).then(snapshot => {
+      const data = snapshot.docs.map(item => ({ id: item.id, ...item.data() } as RecordItem));
+      if (active) setRows(data);
+    }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'Could not load the inbox.'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [authed, tab]);
 
-  if (!authed) return <PasswordGate onAuth={() => setAuthed(true)} />;
-
-  const saveProduct = async (p: Product) => {
-    await setDoc(doc(db, 'products', String(p.id)), p);
-    setProducts(prev => prev.map(x => x.id === p.id ? p : x));
+  const changeStatus = async (item: RecordItem, status: string) => {
+    setError('');
+    setSavingIds(current => new Set(current).add(item.id));
+    setRows(current => current.map(row => row.id === item.id ? { ...row, status } : row));
+    try {
+      await updateDoc(doc(db, tab, item.id), { status });
+    } catch (cause) {
+      setRows(current => current.map(row => row.id === item.id ? { ...row, status: item.status } : row));
+      setError(cause instanceof Error ? cause.message : 'Could not update the status.');
+    } finally {
+      setSavingIds(current => { const next = new Set(current); next.delete(item.id); return next; });
+    }
   };
 
-  const addProduct = async (p: Omit<Product, 'id'>) => {
-    const maxId = Math.max(...products.map(x => x.id), 100);
-    const newId = maxId + 1;
-    const newProduct = { ...p, id: newId };
-    await setDoc(doc(db, 'products', String(newId)), newProduct);
-    setProducts(prev => [...prev, newProduct]);
-  };
+  if (checking) return <main className="admin-loading">Checking admin access…</main>;
+  if (!authed) return <AdminGate enrollmentUser={enrollmentUser} />;
+  const isProjects = tab === 'projectRequests';
+  const statuses = isProjects ? ['pending', 'reviewing', 'quoted', 'closed'] : ['new', 'read', 'resolved'];
 
-  const allCategories = ['all', ...CATEGORIES];
-  const visible = products.filter(p =>
-    (categoryFilter === 'all' || p.category === categoryFilter) &&
-    (filter === '' || p.name.toLowerCase().includes(filter.toLowerCase()))
-  );
-
-  return (
-    <div style={{ minHeight: '100vh', background: '#f9f9f9', padding: '32px 24px' }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>OPAC Product Admin</h1>
-            <p style={{ margin: '4px 0 0', color: '#888', fontSize: 13 }}>Manage products, prices, images and add new items.</p>
-          </div>
-          <span style={{ fontSize: 13, color: '#999', background: '#fff', border: '1px solid #e5e5e5', padding: '6px 14px' }}>{products.length} total products</span>
-        </div>
-
-        <div style={{ display: 'flex', gap: 0, marginBottom: 24, borderBottom: '2px solid #e5e5e5' }}>
-          {(['products', 'add'] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              style={{ padding: '10px 24px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                borderBottom: tab === t ? '2px solid #111' : '2px solid transparent',
-                marginBottom: -2, color: tab === t ? '#111' : '#888' }}>
-              {t === 'products' ? 'All Products' : '+ Add Product'}
-            </button>
-          ))}
-        </div>
-
-        {tab === 'add' && <AddProductPanel onAdd={addProduct} />}
-
-        {tab === 'products' && (
-          <>
-            <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-              <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Search products…"
-                style={{ padding: '8px 12px', border: '1px solid #ddd', fontSize: 13, width: 220, outline: 'none', background: '#fff' }} />
-              <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
-                style={{ padding: '8px 12px', border: '1px solid #ddd', fontSize: 13, background: '#fff', outline: 'none' }}>
-                {allCategories.map(c => <option key={c} value={c}>{c === 'all' ? 'All Categories' : c}</option>)}
-              </select>
-              <span style={{ alignSelf: 'center', fontSize: 13, color: '#999' }}>{visible.length} shown</span>
-            </div>
-
-            <div style={{ background: '#fff', border: '1px solid #e5e5e5', overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: '#f5f5f5', borderBottom: '2px solid #e5e5e5' }}>
-                    {['ID', 'Image', 'Product', 'Price', 'Original', 'Discount', 'Image URL', 'Actions'].map(h => (
-                      <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#555', whiteSpace: 'nowrap' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {visible.map(p => <ProductRow key={p.id} product={p} onSave={saveProduct} />)}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-      </div>
+  return <main className="admin-page">
+    <div className="admin-shell">
+      <header className="admin-hero">
+        <div><span className="eyebrow">OPAC LABS / PROJECT DESK</span><h1>Ideas coming in<span>.</span></h1><p>Review enquiries, move projects forward, and keep every conversation in one place.</p></div>
+        <button className="signout" onClick={() => signOut(auth)}>Sign out ↗</button>
+      </header>
+      <nav className="inbox-tabs" aria-label="Admin inboxes">
+        <button className={isProjects ? 'active' : ''} onClick={() => setTab('projectRequests')}>Project briefs</button>
+        <button className={!isProjects ? 'active' : ''} onClick={() => setTab('contactMessages')}>Messages</button>
+      </nav>
+      <div className="inbox-heading"><h2>{isProjects ? 'Project briefs' : 'Contact messages'}</h2><span>Latest {rows.length} {rows.length === 1 ? 'record' : 'records'}</span></div>
+      {error && <p className="error" role="alert">{error}</p>}
+      {loading ? <div className="empty">Loading records…</div> : rows.length === 0 ? <div className="empty">Nothing here yet. New enquiries will appear as they arrive.</div> :
+        <div className="record-grid">{rows.map(item => <article className="record" key={item.id}>
+          <div className="record-top"><span>{isProjects ? serviceLabels[item.projectType || ''] || 'Project' : 'Message'}</span><time>{item.createdAt?.toDate().toLocaleString() || 'Just received'}</time></div>
+          <h3>{item.name || 'New enquiry'}</h3>
+          <div className="contact-line"><a href={`mailto:${item.email}`}>{item.email}</a>{item.phone && <a href={`tel:${item.phone}`}>{item.phone}</a>}</div>
+          <p className="brief">{isProjects ? item.description : item.message}</p>
+          {isProjects && <div className="details"><span>Budget: {budgetLabels[item.budget || ''] || '—'}</span><span>Timeline: {timelineLabels[item.timeline || ''] || '—'}</span></div>}
+          <div className="record-foot"><span>REF {item.id.slice(0, 8).toUpperCase()}</span><label>{savingIds.has(item.id) ? 'Saving…' : 'Status'} <select value={item.status || statuses[0]} disabled={savingIds.has(item.id)} onChange={event => changeStatus(item, event.target.value)}>{statuses.map(status => <option key={status} value={status}>{status}</option>)}</select></label></div>
+        </article>)}</div>}
     </div>
-  );
+  </main>;
 }

@@ -8,7 +8,8 @@ import styles from './Navbar.module.css';
 
 const links = [
     { href: '/student-projects', label: 'Student Projects' },
-    { href: '/build-project', label: 'Build Your Own' },
+    { href: '/projects', label: 'Our Work' },
+    { href: '/build-project', label: 'Plan Your Project' },
     { href: '/contact', label: 'Contact' },
 ];
 
@@ -66,7 +67,7 @@ export default function Navbar() {
                         {user ? <>
                             <div className={styles.user}><strong>{user.displayName || 'Your account'}</strong><span>{user.email}</span></div>
                             <Link href="/profile" onClick={() => setMenu(null)}>My profile</Link>
-                            <Link href="/orders" onClick={() => setMenu(null)}>My orders</Link>
+                            <Link href="/my-projects" onClick={() => setMenu(null)}>My projects</Link>
                             <button onClick={async () => { if (window.confirm('Are you sure you want to logout?')) { try { await signOut(); setMenu(null); } catch (error) { console.error(error); } } }}>Sign out</button>
                         </> : <>
                             <Link href="/login" onClick={() => setMenu(null)}>Sign in</Link>

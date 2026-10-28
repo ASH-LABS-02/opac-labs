@@ -1,52 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebaseAdmin';
+import { getAdminDb, getAuthenticatedUser, getAdminUser, hasAdminAccess } from '@/lib/firebaseAdmin';
 
-// PATCH /api/orders/:id  — update order status (admin)
-export async function PATCH(
-    req: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    const { id } = await params;
+type RouteContext = { params: Promise<{ id: string }> };
+
+export async function GET(req: NextRequest, { params }: RouteContext) {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return NextResponse.json({ error: 'Sign in required' }, { status: 401 });
     try {
-        const { status } = await req.json();
-        const validStatuses = ['Processing', 'Delivered', 'Cancelled'];
-        if (!validStatuses.includes(status)) {
-            return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+        const { id } = await params;
+        const doc = await getAdminDb().collection('orders').doc(id).get();
+        if (!doc.exists) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+        const data = doc.data()!;
+        if (data.userId !== user.uid && !(await hasAdminAccess(user))) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
-
-        const db = getAdminDb();
-        await db.collection('orders').doc(id).update({ status });
-        return NextResponse.json({ success: true });
-    } catch (err) {
-        console.error('PATCH /api/orders/[id] error:', err);
-        return NextResponse.json({ error: 'Failed to update order' }, { status: 500 });
+        return NextResponse.json({ orderId: doc.id, date: data.createdAt?.toDate().toLocaleDateString() ?? 'N/A', items: data.items ?? [], total: data.total ?? 0, status: data.status ?? 'Processing', userName: data.userName, userEmail: data.userEmail });
+    } catch (error) {
+        console.error('Could not load order:', error);
+        return NextResponse.json({ error: 'Could not load order' }, { status: 500 });
     }
 }
 
-// GET /api/orders/:id  — get a single order
-export async function GET(
-    _req: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    const { id } = await params;
+export async function PATCH(req: NextRequest, { params }: RouteContext) {
+    if (!(await getAdminUser(req))) return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     try {
-        const db = getAdminDb();
-        const doc = await db.collection('orders').doc(id).get();
-        if (!doc.exists) {
-            return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+        const { status } = await req.json();
+        if (!['Processing', 'Delivered', 'Cancelled'].includes(status)) {
+            return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
         }
-        const d = doc.data()!;
-        return NextResponse.json({
-            orderId: doc.id,
-            date: d.createdAt?.toDate().toLocaleDateString() ?? 'N/A',
-            items: d.items ?? [],
-            total: d.total ?? 0,
-            status: d.status ?? 'Processing',
-            userName: d.userName,
-            userEmail: d.userEmail,
-        });
-    } catch (err) {
-        console.error('GET /api/orders/[id] error:', err);
-        return NextResponse.json({ error: 'Failed to fetch order' }, { status: 500 });
+        const { id } = await params;
+        const ref = getAdminDb().collection('orders').doc(id);
+        if (!(await ref.get()).exists) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+        await ref.update({ status });
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        console.error('Could not update order:', error);
+        return NextResponse.json({ error: 'Could not update order' }, { status: 500 });
     }
 }

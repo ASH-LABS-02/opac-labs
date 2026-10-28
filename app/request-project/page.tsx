@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebaseAuth } from '@/contexts/FirebaseAuthContext';
+import { appCheckHeaders } from '@/lib/firebase';
 
 const steps = [
     { n: '01', title: 'Submit Your Idea', desc: 'Fill out the form with your project details, budget, and timeline.' },
@@ -17,8 +18,8 @@ const features = [
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
             </svg>
         ),
-        label: 'Fast Turnaround',
-        desc: 'Most projects delivered in 1–4 weeks.',
+        label: 'Built to Your Brief',
+        desc: 'We scope the work around your goals and timeline.',
         color: 'var(--opac-blue)' // soft blue
     },
     {
@@ -27,8 +28,8 @@ const features = [
                 <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
             </svg>
         ),
-        label: 'Expert Engineers',
-        desc: 'Experienced in IoT & embedded systems.',
+        label: 'Software + Hardware',
+        desc: 'One team for code, electronics, and integration.',
         color: 'var(--opac-green)' // soft green
     },
     {
@@ -37,25 +38,41 @@ const features = [
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
         ),
-        label: '24h Response',
-        desc: 'We reply to requests within 1 day.',
+        label: 'Thoughtful Review',
+        desc: 'We review each brief before suggesting next steps.',
         color: 'var(--opac-yellow)' // soft yellow
     },
 ];
 
 type FormFields = {
     name: string; email: string; phone: string;
-    projectType: string; description: string; budget: string; timeline: string;
+    projectType: string; description: string; budget: string; timeline: string; website: string;
 };
 
 export default function RequestProject() {
     const router = useRouter();
-    const { user, loading } = useFirebaseAuth();
+    const { user } = useFirebaseAuth();
     const [formData, setFormData] = useState<FormFields>({
-        name: '', email: '', phone: '', projectType: '', description: '', budget: '', timeline: '',
+        name: '', email: '', phone: '', projectType: '', description: '', budget: '', timeline: '', website: '',
     });
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState('');
+    const [whatsappUrl, setWhatsappUrl] = useState('');
+    const [reference, setReference] = useState('');
+
+    useEffect(() => {
+        const idea = new URLSearchParams(window.location.search).get('idea');
+        if (idea) setFormData(previous => ({ ...previous, description: previous.description || idea.slice(0, 3000) }));
+    }, []);
+
+    useEffect(() => {
+        if (user) setFormData(previous => ({
+            ...previous,
+            name: previous.name || user.displayName || '',
+            email: previous.email || user.email || '',
+        }));
+    }, [user]);
 
     function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
         setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -64,19 +81,21 @@ export default function RequestProject() {
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
         setIsSubmitting(true);
+        setError('');
         try {
             const res = await fetch('/api/request-project', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...formData, userId: user?.uid }),
+                headers: { 'Content-Type': 'application/json', ...(await appCheckHeaders()), ...(user ? { Authorization: `Bearer ${await user.getIdToken()}` } : {}) },
+                body: JSON.stringify(formData),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to submit');
-            window.open(data.whatsappUrl, '_blank');
+            setWhatsappUrl(data.whatsappUrl || '');
+            setReference(data.requestId || '');
             setIsSubmitted(true);
         } catch (err) {
             console.error(err);
-            alert('Failed to submit request. Please try again.');
+            setError(err instanceof Error ? err.message : 'Failed to submit request. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
@@ -99,7 +118,9 @@ export default function RequestProject() {
                     .success-card {
                         background: #ffffff;
                         border: 6px solid #111;
-                        padding: 48px;
+                        box-sizing: border-box;
+                        width: calc(100% - 32px);
+                        padding: clamp(24px, 6vw, 48px);
                         max-width: 500px;
                         text-align: center;
                         box-shadow: 12px 12px 0px rgba(0,0,0,1);
@@ -117,15 +138,27 @@ export default function RequestProject() {
                         box-shadow: -6px 6px 0px #d500f9, -6px 6px 0px 4px #111;
                         cursor: pointer;
                     }
+                    .success-actions { display: grid; gap: 20px; margin-top: 32px; }
+                    .success-actions p { margin: 0; }
+                    .success-actions .manga-btn {
+                        box-sizing: border-box;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        min-height: 58px;
+                        width: 100%;
+                    }
                     `
                 }} />
                 <div className="success-card">
                     <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--opac-green)', border: '4px solid #111', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 28px', fontSize: '36px', fontWeight: 'bold' }}>✓</div>
                     <h1 style={{ fontFamily: "var(--font-archivo-black), 'Archivo Black'", fontSize: '28px', textTransform: 'uppercase', marginBottom: '12px' }}>Request Sent!</h1>
-                    <p style={{ fontFamily: "var(--font-kalam), 'Kalam'", fontSize: '1.2rem', lineHeight: 1.4, marginBottom: '32px' }}>Your project details have been sent to our team via WhatsApp. We will get back to you within 24 hours.</p>
-                    <button onClick={() => router.push('/student-projects')} className="manga-btn">
-                        Back to Projects 🚀
-                    </button>
+                    <p style={{ fontFamily: "var(--font-kalam), 'Kalam'", fontSize: '1.2rem', lineHeight: 1.4, marginBottom: '24px' }}>Your project brief is saved with our team. We will review the scope and contact you soon.</p>
+                    {reference && <p style={{ fontFamily: 'var(--font-space-mono), monospace', fontSize: '0.9rem' }}>Reference: {reference.slice(0, 8).toUpperCase()}</p>}
+                    <div className="success-actions">
+                        {whatsappUrl && <p><a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="manga-btn">Continue on WhatsApp ↗</a></p>}
+                        <button onClick={() => router.push('/projects')} className="manga-btn">Explore our work ↗</button>
+                    </div>
                 </div>
             </main>
         );
@@ -387,15 +420,15 @@ export default function RequestProject() {
 
                     {/* Hero Panel */}
                     <div className="panel panel-hero" style={{ overflow: 'visible' }}>
-                        <div className="vert-text" style={{ fontSize: '5rem', letterSpacing: '-15px' }}>計画</div>
-                        <div className="action-burst"></div>
+                        <div aria-hidden="true" className="vert-text" style={{ fontSize: '5rem', letterSpacing: '-15px' }}>計画</div>
+                        <div aria-hidden="true" className="action-burst"></div>
 
                         <div className="speech-bubble comic-dialogue" style={{ maxWidth: '300px', zIndex: 10 }}>
-                            <strong>OPAC BUILDER:</strong> Let&apos;s build your custom device!
+                            <strong>OPAC BUILDER:</strong> Let&apos;s plan your project!
                         </div>
 
                         <h1 className="massive-text" style={{ position: 'relative', zIndex: 2 }}>
-                            BUILD YOUR<br />DREAM PROJECT
+                            YOUR IDEA.<br />BUILT TO WORK.
                         </h1>
                     </div>
 
@@ -414,7 +447,7 @@ export default function RequestProject() {
 
                     {/* Left Panel: How It Works */}
                     <div className="panel panel-half-l" style={{ justifyContent: 'flex-start' }}>
-                        <div className="vert-text">方法</div>
+                        <div aria-hidden="true" className="vert-text">方法</div>
                         <h2 className="offset-shadow-text" style={{ fontSize: '2.4rem', marginBottom: '24px' }}>HOW IT WORKS</h2>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative', zIndex: 2 }}>
@@ -436,16 +469,16 @@ export default function RequestProject() {
 
                         {/* Testimonial card */}
                         <div style={{ marginTop: '24px', padding: '20px', background: '#ffffff', border: '4px solid #111', borderRadius: '4px', position: 'relative', zIndex: 2, boxShadow: '6px 6px 0px #111' }}>
-                            <p className="comic-dialogue" style={{ fontSize: '1rem', lineHeight: 1.5, marginBottom: '12px', fontStyle: 'italic' }}>
-                                &quot;OPAC Labs built our smart irrigation system in under 3 weeks. The quality and support were outstanding.&quot;
+                            <p className="comic-dialogue" style={{ fontSize: '1rem', lineHeight: 1.5, marginBottom: '12px' }}>
+                                Software, hardware, or both: tell us the outcome you need and we will plan the right build with you.
                             </p>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--opac-pink)', border: '2px solid #111', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '700' }}>
                                     R
                                 </div>
                                 <div>
-                                    <div className="manga-title" style={{ fontSize: '0.9rem' }}>Rahul M.</div>
-                                    <div style={{ fontSize: '11px', color: '#666' }}>Engineering Student, VIT</div>
+                                    <div className="manga-title" style={{ fontSize: '0.9rem' }}>OPAC LABS</div>
+                                    <div style={{ fontSize: '11px', color: '#666' }}>Project studio</div>
                                 </div>
                             </div>
                         </div>
@@ -455,50 +488,38 @@ export default function RequestProject() {
                     <div className="panel panel-half-r" style={{ justifyContent: 'flex-start', padding: '40px' }}>
                         <h2 className="offset-shadow-text" style={{ fontSize: '2.4rem', marginBottom: '8px' }}>SUBMIT REQUEST</h2>
                         <p className="comic-dialogue" style={{ fontSize: '1.05rem', color: '#666', marginBottom: '32px' }}>
-                            All fields are required. We will respond within 24 hours via WhatsApp.
+                            Tell us what you want to make. We will review your brief and get back to you.
                         </p>
 
-                        {loading ? (
-                            <div style={{ textAlign: 'center', padding: '40px 0', fontFamily: 'var(--font-space-mono), monospace', fontWeight: 'bold' }}>
-                                Checking authentication...
-                            </div>
-                        ) : !user ? (
-                            <div style={{ textAlign: 'center', padding: '32px 24px', background: '#fce4ec', border: '4px solid #111', borderRadius: '4px', boxShadow: '6px 6px 0px #111' }}>
-                                <h3 className="manga-title" style={{ fontSize: '1.4rem', color: '#111', marginBottom: '8px' }}>
-                                    AUTHENTICATION REQUIRED
-                                </h3>
-                                <p className="comic-dialogue" style={{ fontSize: '1.1rem', color: '#333', marginBottom: '24px' }}>
-                                    Please sign in to submit a custom project request form.
-                                </p>
-                                <button
-                                    onClick={() => { localStorage.setItem('redirectAfterLogin', '/request-project'); router.push('/login'); }}
-                                    className="manga-btn"
-                                >
-                                    Sign In to Continue 🚀
-                                </button>
-                            </div>
-                        ) : (
-                            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                <div aria-hidden="true" style={{ position: 'absolute', left: '-10000px' }}>
+                                    <label htmlFor="request-website">Website</label>
+                                    <input id="request-website" name="website" tabIndex={-1} autoComplete="off" value={formData.website} onChange={handleChange} />
+                                </div>
+                                {error && <p role="alert" style={{ color: '#a11d3a', fontWeight: 700 }}>{error}</p>}
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                                     <div className="manga-form-group">
-                                        <label>Your Name</label>
-                                        <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="John Doe" required />
+                                        <label htmlFor="request-name">Your Name</label>
+                                        <input id="request-name" type="text" name="name" value={formData.name} onChange={handleChange} placeholder="John Doe" required />
                                     </div>
                                     <div className="manga-form-group">
-                                        <label>Email</label>
-                                        <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="you@email.com" required />
+                                        <label htmlFor="request-email">Email</label>
+                                        <input id="request-email" type="email" name="email" value={formData.email} onChange={handleChange} placeholder="you@email.com" required />
                                     </div>
                                 </div>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                                     <div className="manga-form-group">
-                                        <label>Phone Number</label>
-                                        <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+91 98765 43210" required />
+                                        <label htmlFor="request-phone">Phone Number</label>
+                                        <input id="request-phone" type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+91 98765 43210" required />
                                     </div>
                                     <div className="manga-form-group">
-                                        <label>Project Type</label>
-                                        <select name="projectType" value={formData.projectType} onChange={handleChange} required>
+                                        <label htmlFor="request-type">Project Type</label>
+                                        <select id="request-type" name="projectType" value={formData.projectType} onChange={handleChange} required>
                                             <option value="">Select type</option>
+                                            <option value="software">Software project</option>
+                                            <option value="hardware">Hardware project</option>
+                                            <option value="hybrid">Software + hardware</option>
                                             <option value="iot">IoT &amp; Smart Devices</option>
                                             <option value="robotics">Robotics</option>
                                             <option value="automation">Home Automation</option>
@@ -509,15 +530,16 @@ export default function RequestProject() {
                                 </div>
 
                                 <div className="manga-form-group">
-                                    <label>Project Description</label>
-                                    <textarea name="description" value={formData.description} onChange={handleChange} rows={4} placeholder="Describe what you want to build..." required style={{ resize: 'vertical' }} />
+                                    <label htmlFor="request-description">Project Description</label>
+                                    <textarea id="request-description" name="description" value={formData.description} onChange={handleChange} rows={4} placeholder="Describe what you want to build..." required style={{ resize: 'vertical' }} />
                                 </div>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                                     <div className="manga-form-group">
-                                        <label>Budget Range</label>
-                                        <select name="budget" value={formData.budget} onChange={handleChange} required>
+                                        <label htmlFor="request-budget">Target Budget</label>
+                                        <select id="request-budget" name="budget" value={formData.budget} onChange={handleChange} required>
                                             <option value="">Select range</option>
+                                            <option value="not-sure">Not sure yet</option>
                                             <option value="under-5k">Under ₹5,000</option>
                                             <option value="5k-10k">₹5,000 – ₹10,000</option>
                                             <option value="10k-20k">₹10,000 – ₹20,000</option>
@@ -525,8 +547,8 @@ export default function RequestProject() {
                                         </select>
                                     </div>
                                     <div className="manga-form-group">
-                                        <label>Timeline</label>
-                                        <select name="timeline" value={formData.timeline} onChange={handleChange} required>
+                                        <label htmlFor="request-timeline">Timeline</label>
+                                        <select id="request-timeline" name="timeline" value={formData.timeline} onChange={handleChange} required>
                                             <option value="">Select timeline</option>
                                             <option value="1-week">1 Week</option>
                                             <option value="2-weeks">2 Weeks</option>
@@ -543,14 +565,13 @@ export default function RequestProject() {
                                         className="manga-btn"
                                         style={{ background: isSubmitting ? '#aaa' : '#111', cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
                                     >
-                                        {isSubmitting ? 'Submitting...' : 'Send via WhatsApp 🚀'}
+                                        {isSubmitting ? 'Submitting...' : 'Send Project Brief 🚀'}
                                     </button>
                                     <p className="comic-dialogue" style={{ fontSize: '0.9rem', color: '#888', textAlign: 'center', margin: 0 }}>
-                                        This will open WhatsApp with your project details pre-filled.
+                                        Your brief is saved for our team. You can choose to continue on WhatsApp afterward.
                                     </p>
                                 </div>
                             </form>
-                        )}
                     </div>
 
                 </div>

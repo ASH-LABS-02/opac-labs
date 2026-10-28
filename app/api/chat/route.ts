@@ -1,92 +1,72 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { products } from '@/lib/data';
+import { getAuthenticatedUser } from '@/lib/firebaseAdmin';
+import { RequestError, clientAddress, enforceRateLimit, readJsonRequest, requestErrorResponse, requireAppCheck } from '@/lib/serverSecurity';
+import { getOpenAiKey } from '@/lib/serverSecrets';
 
 export const dynamic = 'force-dynamic';
 
+type Step = { name: string; reason: string };
 
-// Compact product list for the system prompt
-const productCatalog = products.map(p => ({
-    id: p.id,
-    name: p.name,
-    price: p.price,
-    category: p.category,
-    description: p.description,
-}));
-
-const SYSTEM_PROMPT = `You are a helpful electronics project assistant for OPAC Labs, an electronics store for students in India.
-
-When a student describes a project idea, suggest the relevant components from our catalog.
-
-CATALOG:
-${JSON.stringify(productCatalog, null, 2)}
-
-RULES:
-- Always respond with a JSON object in this exact format:
-{
-  "message": "friendly explanation of the project and why these components are needed",
-  "suggestions": [
-    { "id": <product_id_number>, "name": "<product_name>", "reason": "<why this component is needed>" }
-  ]
+function outlineProject(idea: string): { message: string; suggestions: Step[] } {
+    const text = idea.toLowerCase();
+    const software = /website|web app|mobile|app|dashboard|api|platform|software|saas|database|portal/.test(text);
+    const hardware = /robot|sensor|device|circuit|arduino|esp32|iot|prototype|embedded|motor|irrigat|automation/.test(text);
+    const focus = software && hardware ? 'a connected software and hardware project' : software ? 'a software project' : hardware ? 'a hardware project' : 'a custom project';
+    const suggestions: Step[] = [
+        { name: 'Define the outcome', reason: 'Clarify who will use it, the problem it solves, and what a successful first version must do.' },
+        ...(software ? [{ name: 'Design the software', reason: 'Map the screens, data, integrations, and core user journey before development.' }] : []),
+        ...(hardware ? [{ name: 'Prototype the hardware', reason: 'Plan the electronics, enclosure, power, and real-world testing needed for a working build.' }] : []),
+        { name: 'Build and validate', reason: 'Create a focused prototype, test the key scenarios, then refine it with your feedback.' },
+    ];
+    return {
+        message: `This sounds like ${focus}. We can help turn the idea into a scoped brief and a working deliverable. Share your goal, deadline, and any must-have features so our team can review the right approach.`,
+        suggestions,
+    };
 }
-- Only suggest products that exist in the catalog (use exact id and name).
-- Suggest 3–6 relevant components.
-- Keep the message conversational and helpful.
-- If the idea is unclear, ask a clarifying question but still return the JSON format with empty suggestions array.
-- Always return valid JSON only, no markdown, no extra text.`;
 
 export async function POST(req: NextRequest) {
     try {
-        const apiKey = process.env.OPENAI_API_KEY;
-        const { messages } = await req.json();
-
-        if (!apiKey) {
-            // Local dev fallback if OpenAI API key is not configured
-            const lastMessage = messages[messages.length - 1]?.content || '';
-            const matchedProducts = products.filter(p => 
-                lastMessage.toLowerCase().includes(p.name.toLowerCase()) || 
-                lastMessage.toLowerCase().includes(p.category.toLowerCase())
-            ).slice(0, 3);
-
-            const fallbackSuggestions = matchedProducts.length > 0 
-                ? matchedProducts.map(p => ({ id: p.id, name: p.name, reason: `Suitable component matching: ${p.name}` }))
-                : [
-                    { id: 1, name: "Arduino Uno R3", reason: "Standard microcontroller for control logic." },
-                    { id: 4, name: "HC-SR04 Ultrasonic Sensor", reason: "For range finding and distance sensing." }
-                  ];
-
-            return NextResponse.json({
-                message: `[Mock Assistant] To build this project, you'll need a microcontroller and some basic sensors. (Set OPENAI_API_KEY in .env.local to enable full GPT-4 suggestions).`,
-                suggestions: fallbackSuggestions
-            });
+        await enforceRateLimit('chat-global', 'all', 2000, 60_000);
+        await enforceRateLimit('chat-ip', clientAddress(req), 40, 60_000);
+        await requireAppCheck(req);
+        const body = await readJsonRequest<Record<string, unknown>>(req, 32 * 1024);
+        const messages = body?.messages;
+        if (!Array.isArray(messages) || messages.length < 1 || messages.length > 10 ||
+            messages.some(message => !['user', 'assistant'].includes(message?.role) || typeof message.content !== 'string' || message.content.length < 1 || message.content.length > 1500) ||
+            messages.reduce((total, message) => total + message.content.length, 0) > 12_000) {
+            return NextResponse.json({ error: 'Describe your project idea to continue.' }, { status: 400 });
         }
+        const lastUserMessage = [...messages].reverse().find(message => message.role === 'user')?.content;
+        if (!lastUserMessage) return NextResponse.json({ error: 'Describe your project idea to continue.' }, { status: 400 });
 
-        const openai = new OpenAI({ apiKey });
+        const fallback = outlineProject(lastUserMessage);
+        const openAiKey = getOpenAiKey();
+        if (!openAiKey) return NextResponse.json(fallback);
+        const user = await getAuthenticatedUser(req);
+        if (!user || user.email_verified !== true) return NextResponse.json(fallback);
+        await enforceRateLimit('paid-chat-user', user.uid, 10, 60_000);
+        await enforceRateLimit('paid-chat-global', 'all', 100, 60_000);
 
-        const completion = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [
-                { role: 'system', content: SYSTEM_PROMPT },
-                ...messages,
-            ],
-            temperature: 0.7,
-            max_tokens: 800,
-        });
-
-        const raw = completion.choices[0].message.content || '{}';
-
-        // Parse and validate the JSON response
-        let parsed;
         try {
-            parsed = JSON.parse(raw);
-        } catch {
-            parsed = { message: raw, suggestions: [] };
+            const completion = await new OpenAI({ apiKey: openAiKey }).chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages: [
+                    { role: 'system', content: 'You are OPAC Labs project planning assistant. OPAC Labs provides custom software and hardware project services; it does not sell components. Return JSON with a concise message and 2-4 suggestions, each with name and reason. Suggest scope, architecture, prototype, testing, or delivery steps. Do not quote prices, claim a project is accepted, or promise a deadline. Ask for missing requirements when needed.' },
+                    ...messages,
+                ],
+                response_format: { type: 'json_object' },
+                max_tokens: 700,
+            });
+            const parsed = JSON.parse(completion.choices[0]?.message?.content || '{}');
+            const suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 4).filter((step: Step) => typeof step?.name === 'string' && typeof step?.reason === 'string').map((step: Step) => ({ name: step.name.slice(0, 80), reason: step.reason.slice(0, 240) })) : fallback.suggestions;
+            return NextResponse.json({ message: typeof parsed.message === 'string' ? parsed.message.slice(0, 2000) : fallback.message, suggestions });
+        } catch (error) {
+            console.error('AI project planning unavailable:', error);
+            return NextResponse.json(fallback);
         }
-
-        return NextResponse.json(parsed);
-    } catch (error: unknown) {
-        console.error('Chat API error:', error);
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        return NextResponse.json({ error: message }, { status: 500 });
+    } catch (error) {
+        if (!(error instanceof RequestError)) console.error('Project planning request failed:', error);
+        return requestErrorResponse(error, 'Could not plan this project. Please try again.');
     }
 }

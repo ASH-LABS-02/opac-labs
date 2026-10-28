@@ -13,7 +13,7 @@ export default function Footer() {
     return (
         <footer className="footer">
             <div className="container">
-                <p>&copy; 2026 OPAC Labs. Electronics for students.</p>
+                <p>&copy; 2026 OPAC Labs. Software and hardware projects, built together.</p>
             </div>
         </footer>
     );

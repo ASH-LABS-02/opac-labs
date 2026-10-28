@@ -34,7 +34,7 @@ export default function AIFloatingButton() {
             <div className="ai-fab-wrapper">
                 {showTip && (
                     <div className="ai-fab-tip">
-                        Let OPAC AI help you pick the right components for your project
+                        Explore a software or hardware project with OPAC AI
                         <span className="ai-fab-tip-arrow" />
                     </div>
                 )}

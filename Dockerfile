@@ -1,0 +1,55 @@
+FROM node:22-bookworm-slim AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+
+FROM node:22-bookworm-slim AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+ARG NEXT_PUBLIC_FIREBASE_API_KEY=demo-key
+ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=localhost
+ARG NEXT_PUBLIC_FIREBASE_PROJECT_ID=demo-opac-labs
+ARG NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=demo-opac-labs.appspot.com
+ARG NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
+ARG NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:local
+ARG NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY=
+ARG NEXT_PUBLIC_USE_FIREBASE_EMULATORS=false
+ARG NEXT_PUBLIC_FIREBASE_EMULATOR_HOST=127.0.0.1
+ARG OPAC_PRODUCTION_BUILD=false
+ENV NEXT_PUBLIC_FIREBASE_API_KEY=$NEXT_PUBLIC_FIREBASE_API_KEY \
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN \
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID=$NEXT_PUBLIC_FIREBASE_PROJECT_ID \
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET \
+    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID \
+    NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID \
+    NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY=$NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY \
+    NEXT_PUBLIC_USE_FIREBASE_EMULATORS=$NEXT_PUBLIC_USE_FIREBASE_EMULATORS \
+    NEXT_PUBLIC_FIREBASE_EMULATOR_HOST=$NEXT_PUBLIC_FIREBASE_EMULATOR_HOST
+RUN if [ "$OPAC_PRODUCTION_BUILD" = "true" ]; then \
+      test "$NEXT_PUBLIC_USE_FIREBASE_EMULATORS" = "false" && \
+      test -n "$NEXT_PUBLIC_FIREBASE_API_KEY" && \
+      test -n "$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN" && \
+      test "$NEXT_PUBLIC_FIREBASE_PROJECT_ID" != "demo-opac-labs" && \
+      test -n "$NEXT_PUBLIC_FIREBASE_APP_ID" && \
+      test -n "$NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY"; \
+    fi
+RUN npm run build
+
+FROM node:22-bookworm-slim AS runner-base
+WORKDIR /app
+ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
+RUN groupadd --system nextjs && useradd --system --gid nextjs nextjs
+COPY --chown=nextjs:nextjs --from=builder /app/public ./public
+COPY --chown=nextjs:nextjs --from=builder /app/.next/standalone ./
+COPY --chown=nextjs:nextjs --from=builder /app/.next/static ./.next/static
+USER nextjs
+EXPOSE 3000
+CMD ["node", "server.js"]
+
+FROM runner-base AS production
+
+FROM runner-base AS local
+USER root
+COPY --chown=nextjs:nextjs --from=builder /app/scripts ./scripts
+USER nextjs

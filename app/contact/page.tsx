@@ -1,16 +1,33 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
+import { appCheckHeaders } from '@/lib/firebase';
 
 export default function Contact() {
-    const [formData, setFormData] = useState({ name: '', email: '', message: '' });
+    const [formData, setFormData] = useState({ name: '', email: '', message: '', website: '' });
     const [submitted, setSubmitted] = useState(false);
+    const [sending, setSending] = useState(false);
+    const [formError, setFormError] = useState('');
 
-    const handleSubmit = (e: FormEvent) => {
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
-        setSubmitted(true);
-        setFormData({ name: '', email: '', message: '' });
-        setTimeout(() => setSubmitted(false), 4000);
+        if (sending) return;
+        setSending(true);
+        setFormError('');
+        try {
+            const res = await fetch('/api/contact', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', ...(await appCheckHeaders()) },
+                body: JSON.stringify(formData),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Could not send message');
+            setSubmitted(true);
+            setFormData({ name: '', email: '', message: '', website: '' });
+        } catch (error) {
+            setFormError(error instanceof Error ? error.message : 'Could not send message');
+        } finally {
+            setSending(false);
+        }
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -18,7 +35,7 @@ export default function Contact() {
     };
 
     return (
-        <main className="manga-theme-page">
+        <main className="manga-theme-page contact-page">
             <style dangerouslySetInnerHTML={{ __html: `
                 .manga-theme-page {
                     font-family: var(--font-space-mono), 'Space Mono', monospace;
@@ -354,8 +371,8 @@ export default function Contact() {
 
                     {/* ── HERO PANEL ── */}
                     <div className="panel panel-hero" style={{ overflow: 'visible' }}>
-                        <div className="vert-text" style={{ fontSize: '6rem', letterSpacing: '-20px' }}>連絡</div>
-                        <div className="action-burst"></div>
+                        <div aria-hidden="true" className="vert-text" style={{ fontSize: '6rem', letterSpacing: '-20px' }}>連絡</div>
+                        <div aria-hidden="true" className="action-burst"></div>
 
                         <div className="speech-bubble comic-dialogue" style={{ maxWidth: '300px', zIndex: 10 }}>
                             <strong>HEY!</strong> Got a question? A project idea? We are just a message away!
@@ -366,7 +383,7 @@ export default function Contact() {
                         </h1>
 
                         <p style={{ marginTop: '20px', fontSize: '14px', color: '#333', maxWidth: '420px', lineHeight: 1.7, position: 'relative', zIndex: 2, fontFamily: 'var(--font-kalam), cursive' }}>
-                            Whether it&apos;s a product question, a custom order, or a student project — we&apos;re happy to help.
+                            Have a software idea, hardware challenge, or student project? Tell us what you want to build.
                         </p>
                     </div>
 
@@ -410,6 +427,10 @@ export default function Contact() {
                                 </div>
                             ) : (
                                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                                    <div aria-hidden="true" style={{ position: 'absolute', left: '-10000px' }}>
+                                        <label htmlFor="contact-website">Website</label>
+                                        <input id="contact-website" name="website" tabIndex={-1} autoComplete="off" value={formData.website} onChange={handleChange} />
+                                    </div>
                                     <div className="contact-fields-row">
                                         <div>
                                             <label className="manga-label">Your Name</label>
@@ -439,8 +460,9 @@ export default function Contact() {
                                             className="manga-textarea"
                                         />
                                     </div>
-                                    <button type="submit" className="send-form-btn">
-                                        SEND MESSAGE ⚡
+                                    {formError && <p role="alert" style={{ color: '#a11d3a', margin: 0 }}>{formError}</p>}
+                                    <button type="submit" className="send-form-btn" disabled={sending}>
+                                        {sending ? 'SENDING...' : 'SEND MESSAGE ⚡'}
                                     </button>
                                 </form>
                             )}
@@ -521,27 +543,27 @@ export default function Contact() {
 
                     {/* ── INFO PANELS (bottom row) ── */}
                     <div className="panel panel-third" style={{ backgroundColor: 'var(--opac-yellow)' }}>
-                        <div className="vert-text">速い</div>
+                        <div aria-hidden="true" className="vert-text">速い</div>
                         <h2 className="offset-shadow-text" style={{ fontSize: '1.8rem', marginBottom: '14px' }}>FAST RESPONSE</h2>
                         <p className="comic-dialogue">
-                            We typically reply within 24 hours. For urgent queries, message us on WhatsApp!
+                            We will review your message and get back to you. For a direct conversation, message us on WhatsApp.
                         </p>
                     </div>
 
                     <div className="panel panel-third" style={{ backgroundColor: 'var(--opac-pink)' }}>
-                        <div className="ink-splat" style={{ width: '80px', height: '80px', top: '-15px', right: '-15px' }}></div>
-                        <div className="vert-text">支援</div>
-                        <h2 className="offset-shadow-text" style={{ fontSize: '1.8rem', marginBottom: '14px', position: 'relative', zIndex: 2 }}>CUSTOM ORDERS</h2>
+                        <div aria-hidden="true" className="ink-splat" style={{ width: '80px', height: '80px', top: '-15px', right: '-15px' }}></div>
+                        <div aria-hidden="true" className="vert-text">支援</div>
+                        <h2 className="offset-shadow-text" style={{ fontSize: '1.8rem', marginBottom: '14px', position: 'relative', zIndex: 2 }}>CUSTOM PROJECTS</h2>
                         <p className="comic-dialogue" style={{ position: 'relative', zIndex: 2 }}>
-                            Need a specific component or custom kit? Tell us your requirements and we will sort it out!
+                            Need a web app, connected device, automation workflow, or complete prototype? Share your brief.
                         </p>
                     </div>
 
                     <div className="panel panel-third" style={{ backgroundColor: 'var(--opac-green)' }}>
-                        <div className="vert-text">学生</div>
+                        <div aria-hidden="true" className="vert-text">学生</div>
                         <h2 className="offset-shadow-text" style={{ fontSize: '1.8rem', marginBottom: '14px' }}>STUDENT HELP</h2>
                         <p className="comic-dialogue">
-                            Working on a final year project? We offer guidance, components, and full project support!
+                            Working on a final year project? We can help with software, hardware, integration, and documentation.
                         </p>
                     </div>
 

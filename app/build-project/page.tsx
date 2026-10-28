@@ -4,94 +4,43 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { useFirebaseAuth } from '@/contexts/FirebaseAuthContext';
-import { products } from '@/lib/data';
-import {
-    collection, addDoc, updateDoc, doc, getDocs,
-    orderBy, query, serverTimestamp, Timestamp,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { appCheckHeaders } from '@/lib/firebase';
 
-interface Suggestion { id: number; name: string; reason: string; }
+interface Suggestion { name: string; reason: string; }
 interface Message { role: 'user' | 'assistant'; content: string; suggestions?: Suggestion[]; }
 interface Session { id: string; title: string; createdAt: Date; messages: Message[]; }
 
 const PROMPTS = [
-    'Smart irrigation system', 'Obstacle avoiding robot',
-    'Home automation with ESP32', 'Weather monitoring station',
-    'Gas leakage detector', 'Line following robot',
-    'Smart parking system', 'Face recognition attendance',
+    'A dashboard for a small business', 'A mobile app for campus events',
+    'Smart irrigation prototype', 'A robot that navigates a room',
+    'Home automation system', 'A connected attendance system',
+    'An API for my existing app', 'A sensor-based safety device',
 ];
 
-function SuggestionCard({ s, onNavigate }: {
-    s: Suggestion; onNavigate: (id: number) => void;
-}) {
-    const product = products.find(p => p.id === s.id);
-    if (!product) return null;
+function SuggestionCard({ s }: { s: Suggestion }) {
     return (
         <div
             style={{
                 border: '3px solid #111',
                 background: 'var(--opac-paper)',
                 padding: '12px 14px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: '12px',
                 marginBottom: '8px',
                 boxShadow: '-4px 4px 0px #111',
-                transition: 'all 0.1s steps(2)',
-            }}
-            onMouseEnter={e => {
-                const el = e.currentTarget as HTMLDivElement;
-                el.style.transform = 'translate(-2px, 2px)';
-                el.style.boxShadow = '-2px 2px 0px #111';
-            }}
-            onMouseLeave={e => {
-                const el = e.currentTarget as HTMLDivElement;
-                el.style.transform = 'translate(0,0)';
-                el.style.boxShadow = '-4px 4px 0px #111';
             }}
         >
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div>
                 <div style={{ fontSize: '12px', fontWeight: '900', color: '#111', marginBottom: '2px', fontFamily: 'var(--font-archivo-black), sans-serif', textTransform: 'uppercase' }}>
-                    {product.name}
+                    {s.name}
                 </div>
                 <div style={{ fontSize: '11px', color: '#333', marginBottom: '4px', lineHeight: 1.4, fontFamily: 'var(--font-space-mono), monospace' }}>
                     {s.reason}
                 </div>
-                <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--opac-accent)', fontFamily: 'var(--font-archivo-black), sans-serif' }}>
-                    Rs. {product.price}
-                </div>
             </div>
-            <button
-                onClick={() => onNavigate(s.id)}
-                style={{
-                    padding: '6px 14px', fontSize: '11px', fontWeight: '900',
-                    background: '#111', border: '2px solid #111', color: '#fff',
-                    cursor: 'pointer', fontFamily: 'var(--font-archivo-black), sans-serif',
-                    textTransform: 'uppercase', transition: 'all 0.1s steps(2)',
-                    whiteSpace: 'nowrap', flexShrink: 0, boxShadow: '-3px 3px 0px var(--opac-accent)',
-                }}
-                onMouseEnter={e => {
-                    const b = e.currentTarget as HTMLButtonElement;
-                    b.style.background = 'var(--opac-accent)';
-                    b.style.boxShadow = 'none';
-                }}
-                onMouseLeave={e => {
-                    const b = e.currentTarget as HTMLButtonElement;
-                    b.style.background = '#111';
-                    b.style.boxShadow = '-3px 3px 0px var(--opac-accent)';
-                }}
-            >
-                VIEW!
-            </button>
         </div>
     );
 }
 
-function ChatMessage({ msg, onNavigate }: {
-    msg: Message; onNavigate: (id: number) => void;
-}) {
+function ChatMessage({ msg }: { msg: Message }) {
     const isUser = msg.role === 'user';
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: isUser ? 'flex-end' : 'flex-start', gap: '4px', marginBottom: '18px' }}>
@@ -111,7 +60,7 @@ function ChatMessage({ msg, onNavigate }: {
             }}>
                 {msg.content}
             </div>
-            {msg.suggestions && msg.suggestions.length > 0 && (
+            {msg.suggestions && msg.suggestions.some(s => !('id' in s)) && (
                 <div style={{ width: '100%', maxWidth: '78%', marginTop: '8px' }}>
                     <span style={{
                         fontSize: '10px', fontWeight: '900', color: '#fff',
@@ -121,10 +70,10 @@ function ChatMessage({ msg, onNavigate }: {
                         display: 'inline-block', marginBottom: '8px',
                         boxShadow: '-3px 3px 0px #111',
                     }}>
-                        SUGGESTED COMPONENTS
+                        PROJECT PLAN
                     </span>
-                    {msg.suggestions.map(s => (
-                        <SuggestionCard key={s.id} s={s} onNavigate={onNavigate} />
+                    {msg.suggestions.filter(s => !('id' in s)).map(s => (
+                        <SuggestionCard key={s.name} s={s} />
                     ))}
                 </div>
             )}
@@ -396,7 +345,8 @@ h1, h2, h3, .manga-title {
 }
 
 .session-btn {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     text-align: left;
     padding: 10px 14px;
     background: transparent;
@@ -409,6 +359,10 @@ h1, h2, h3, .manga-title {
 }
 .session-btn:hover { background: rgba(41,121,255,0.1); border-left-color: var(--opac-accent); }
 .session-btn.active { background: rgba(41,121,255,0.15); border-left-color: #111; }
+.session-row { display: flex; border-bottom: 2px solid rgba(17,17,17,0.1); }
+.session-row .session-btn { border-bottom: 0; }
+.session-delete { width: 38px; flex-shrink: 0; border: 0; border-left: 1px solid rgba(17,17,17,0.15); background: transparent; cursor: pointer; font-size: 18px; }
+.session-delete:hover, .session-delete:focus-visible { background: #ffe3e8; color: #a3152d; }
 
 .prompt-btn {
     width: 100%;
@@ -445,6 +399,8 @@ export default function BuildProject() {
     const [sessions, setSessions] = useState<Session[]>([]);
     const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
     const [loadingSessions, setLoadingSessions] = useState(false);
+    const [historyError, setHistoryError] = useState('');
+    const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -456,61 +412,78 @@ export default function BuildProject() {
     const loadSessions = useCallback(async () => {
         if (!user) return;
         setLoadingSessions(true);
+        setHistoryError('');
         try {
-            const q = query(
-                collection(db, 'chatHistory', user.uid, 'sessions'),
-                orderBy('createdAt', 'desc')
-            );
-            const snap = await getDocs(q);
-            setSessions(snap.docs.map(d => {
-                const data = d.data();
-                return {
-                    id: d.id,
-                    title: data.title || 'Untitled',
-                    createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
-                    messages: data.messages || [],
-                };
-            }));
-        } catch (err) { console.error(err); }
+            const response = await fetch('/api/chat/history', { headers: { Authorization: `Bearer ${await user.getIdToken()}` } });
+            if (!response.ok) throw new Error('Could not load chat history');
+            const data = await response.json();
+            setSessions((data.sessions || []).map((session: { id: string; title: string; createdAt: string | null; messages: Message[] }) => ({
+                id: session.id,
+                title: session.title,
+                createdAt: session.createdAt ? new Date(session.createdAt) : new Date(),
+                messages: session.messages,
+            })));
+        } catch (err) { setHistoryError(err instanceof Error ? err.message : 'Could not load chat history.'); }
         finally { setLoadingSessions(false); }
     }, [user]);
 
     useEffect(() => { loadSessions(); }, [loadSessions]);
 
     const startNewSession = () => { if (loading) return; setActiveSessionId(null); setMessages([]); setInput(''); };
-    const loadSession = (s: Session) => { setActiveSessionId(s.id); setMessages(s.messages); };
+    const loadSession = (s: Session) => { setActiveSessionId(s.id); setMessages(s.messages.slice(-10)); };
 
     const persistSession = async (updatedMessages: Message[]) => {
         if (!user) return;
         const title = updatedMessages.find(m => m.role === 'user')?.content.slice(0, 50) || 'New chat';
+        const response = await fetch('/api/chat/history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await user.getIdToken()}` },
+            body: JSON.stringify({ sessionId: activeSessionId || undefined, messages: updatedMessages }),
+        });
+        if (!response.ok) {
+            const error = await response.json().catch(() => null);
+            throw new Error(error?.error || 'Could not save chat history.');
+        }
+        const saved = await response.json();
+        setHistoryError('');
         if (activeSessionId) {
-            await updateDoc(
-                doc(db, 'chatHistory', user.uid, 'sessions', activeSessionId),
-                { messages: updatedMessages, title, updatedAt: serverTimestamp() }
-            );
             setSessions(prev => prev.map(s =>
                 s.id === activeSessionId ? { ...s, messages: updatedMessages, title } : s
             ));
         } else {
-            const ref = await addDoc(
-                collection(db, 'chatHistory', user.uid, 'sessions'),
-                { messages: updatedMessages, title, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }
-            );
-            setActiveSessionId(ref.id);
-            setSessions(prev => [{ id: ref.id, title, createdAt: new Date(), messages: updatedMessages }, ...prev]);
+            setActiveSessionId(saved.id);
+            setSessions(prev => [{ id: saved.id, title, createdAt: new Date(), messages: updatedMessages }, ...prev]);
+        }
+    };
+
+    const deleteSession = async (sessionId: string) => {
+        if (!user || deletingSessionId) return;
+        setDeletingSessionId(sessionId);
+        setHistoryError('');
+        try {
+            const response = await fetch(`/api/chat/history?sessionId=${encodeURIComponent(sessionId)}`, {
+                method: 'DELETE', headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+            });
+            if (!response.ok) throw new Error('Could not delete this session.');
+            setSessions(previous => previous.filter(session => session.id !== sessionId));
+            if (activeSessionId === sessionId) { setActiveSessionId(null); setMessages([]); setInput(''); }
+        } catch (error) {
+            setHistoryError(error instanceof Error ? error.message : 'Could not delete this session.');
+        } finally {
+            setDeletingSessionId(null);
         }
     };
 
     const sendMessage = async () => {
         const text = input.trim();
-        if (!text || loading) return;
+        if (!text || text.length > 1500 || loading) return;
         const userMsg: Message = { role: 'user', content: text };
-        const updated = [...messages, userMsg];
+        const updated = [...messages.slice(-8), userMsg];
         setMessages(updated); setInput(''); setLoading(true);
         try {
             const res = await fetch('/api/chat', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await appCheckHeaders()), ...(user ? { Authorization: `Bearer ${await user.getIdToken()}` } : {}) },
                 body: JSON.stringify({ messages: updated.map(m => ({ role: m.role, content: m.content })) }),
             });
             if (!res.ok) throw new Error('Chat request failed');
@@ -522,48 +495,15 @@ export default function BuildProject() {
             };
             const final = [...updated, aiMsg];
             setMessages(final);
-            if (user) await persistSession(final).catch(error => console.error('Could not save chat history:', error));
+            if (user) await persistSession(final).catch(error => setHistoryError(error instanceof Error ? error.message : 'Could not save chat history.'));
         } catch {
             setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }]);
         } finally { setLoading(false); }
     };
 
-    const handleNavigate = (id: number) => router.push('/product/' + String(id));
-
-    const handleWhatsAppBuild = async () => {
-        if (messages.length === 0) return;
-        const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content || 'Custom Project Idea';
-
-        let msg = `*Build Project Request — OPAC Labs*\n\n`;
-        msg += `Name: ${user?.displayName || 'Customer'}\n`;
-        msg += `Email: ${user?.email || 'N/A'}\n\n`;
-        msg += `Project Idea:\n${lastUserMsg}\n`;
-
-        // Save order to Firestore orders collection
-        if (user) {
-            try {
-                await addDoc(collection(db, 'orders'), {
-                    userId: user.uid,
-                    userName: user.displayName || 'Customer',
-                    userEmail: user.email || '',
-                    items: [
-                        {
-                            id: 'build-' + Date.now(),
-                            name: `AI Build: ${lastUserMsg.slice(0, 45)}`,
-                            price: 5000,
-                            quantity: 1
-                        }
-                    ],
-                    total: 5000,
-                    status: 'Processing',
-                    createdAt: serverTimestamp()
-                });
-            } catch (err) {
-                console.error('Error saving build order:', err);
-            }
-        }
-
-        window.open(`https://wa.me/917867089886?text=${encodeURIComponent(msg)}`, '_blank');
+    const handleStartBrief = () => {
+        const idea = [...messages].reverse().find(m => m.role === 'user')?.content || '';
+        router.push(`/request-project?idea=${encodeURIComponent(idea)}`);
     };
 
     return (
@@ -582,10 +522,10 @@ export default function BuildProject() {
 
                     {/* HERO PANEL */}
                     <div className="panel panel-hero" style={{ overflow: 'visible' }}>
-                        <div className="vert-text" style={{ fontSize: '5rem', letterSpacing: '-18px' }}>構築</div>
-                        <div className="action-burst"></div>
+                        <div aria-hidden="true" className="vert-text" style={{ fontSize: '5rem', letterSpacing: '-18px' }}>構築</div>
+                        <div aria-hidden="true" className="action-burst"></div>
                         <div className="speech-bubble comic-dialogue" style={{ maxWidth: '280px', zIndex: 10 }}>
-                            <strong>AI PROJECT BUILDER:</strong> Tell me your idea!
+                            <strong>PROJECT PLANNER:</strong> Tell me your idea!
                         </div>
                         <h1 className="massive-text" style={{ position: 'relative', zIndex: 2 }}>
                             BUILD YOUR<br />PROJECT
@@ -605,17 +545,17 @@ export default function BuildProject() {
                                     AI Chat
                                 </h2>
                                 <p style={{ fontSize: '10px', color: '#555', margin: '2px 0 0', fontFamily: 'var(--font-space-mono), monospace' }}>
-                                    Describe your project and get matched components
+                                    Explore the scope of your software or hardware idea
                                 </p>
                             </div>
                             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                 {messages.length > 0 && (
                                     <button
-                                        onClick={handleWhatsAppBuild}
+                                        onClick={handleStartBrief}
                                         className="manga-btn-primary"
                                         style={{ padding: '6px 12px', fontSize: '10px', boxShadow: '-2px 2px 0px #111' }}
                                     >
-                                        ORDER VIA WHATSAPP
+                                        SEND A PROJECT BRIEF
                                     </button>
                                 )}
                                 <div style={{ fontSize: '10px', color: 'var(--opac-accent)', fontFamily: 'var(--font-archivo-black), sans-serif', textTransform: 'uppercase', letterSpacing: '1px', border: '2px solid var(--opac-accent)', padding: '3px 8px' }}>
@@ -632,7 +572,7 @@ export default function BuildProject() {
                                             WHAT ARE YOU BUILDING?!
                                         </p>
                                         <p className="comic-dialogue" style={{ fontSize: '12px', color: '#333', margin: 0 }}>
-                                            Describe your idea and I will suggest exact components from our catalog!
+                                            Describe your idea and I will outline an approach before you send a brief to our team.
                                         </p>
                                         <div style={{ position: 'absolute', bottom: '-20px', left: '40px', borderWidth: '20px 20px 0 0', borderStyle: 'solid', borderColor: '#111 transparent transparent transparent' }} />
                                         <div style={{ position: 'absolute', bottom: '-13px', left: '43px', borderWidth: '15px 15px 0 0', borderStyle: 'solid', borderColor: '#fff transparent transparent transparent' }} />
@@ -641,7 +581,7 @@ export default function BuildProject() {
                             )}
 
                             {messages.map((msg, i) => (
-                                <ChatMessage key={i} msg={msg} onNavigate={handleNavigate} />
+                                <ChatMessage key={i} msg={msg} />
                             ))}
 
                             {loading && (
@@ -664,6 +604,7 @@ export default function BuildProject() {
                                 type="text"
                                 value={input}
                                 onChange={e => setInput(e.target.value)}
+                                maxLength={1500}
                                 onKeyDown={e => e.key === 'Enter' && sendMessage()}
                                 placeholder="Describe your project idea..."
                                 disabled={loading}
@@ -673,12 +614,16 @@ export default function BuildProject() {
                                 SEND
                             </button>
                         </div>
+                        <p style={{ margin: '6px 16px 12px', fontSize: '10px', color: '#555', lineHeight: 1.5 }}>
+                            Signed-in chats may be processed by an AI provider when enabled. Avoid sharing passwords or confidential data.
+                        </p>
                     </div>
 
                     {/* SIDEBAR PANEL */}
                     <div className="panel panel-sidebar" style={{ justifyContent: 'flex-start' }}>
                         <div className="sidebar-header">Chat History</div>
                         <div style={{ flex: 1, overflowY: 'auto', borderBottom: '3px solid #111', minHeight: 0 }}>
+                            {historyError && <p role="alert" style={{ fontSize: '11px', color: '#a3152d', padding: '10px 14px', margin: 0 }}>{historyError}</p>}
                             {!user && (
                                 <p style={{ fontSize: '11px', color: '#555', padding: '12px 14px', lineHeight: 1.6, fontFamily: 'var(--font-space-mono), monospace', fontStyle: 'italic' }}>
                                     Sign in to save sessions.
@@ -695,18 +640,17 @@ export default function BuildProject() {
                                 </p>
                             )}
                             {sessions.map(s => (
-                                <button
-                                    key={s.id}
-                                    onClick={() => loadSession(s)}
-                                    className={`session-btn${activeSessionId === s.id ? ' active' : ''}`}
-                                >
-                                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#111', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {s.title}
-                                    </div>
-                                    <div style={{ fontSize: '10px', color: '#888' }}>
-                                        {s.createdAt.toLocaleDateString()}
-                                    </div>
-                                </button>
+                                <div className="session-row" key={s.id}>
+                                    <button onClick={() => loadSession(s)} className={`session-btn${activeSessionId === s.id ? ' active' : ''}`}>
+                                        <div style={{ fontSize: '11px', fontWeight: '700', color: '#111', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {s.title}
+                                        </div>
+                                        <div style={{ fontSize: '10px', color: '#888' }}>
+                                            {s.createdAt.toLocaleDateString()}
+                                        </div>
+                                    </button>
+                                    <button className="session-delete" type="button" aria-label={`Delete chat ${s.title}`} title="Delete chat" disabled={deletingSessionId === s.id} onClick={() => deleteSession(s.id)}>×</button>
+                                </div>
                             ))}
                         </div>
 
@@ -722,19 +666,19 @@ export default function BuildProject() {
 
                     {/* INFO PANELS */}
                     <div className="panel panel-half" style={{ backgroundColor: 'var(--opac-yellow)' }}>
-                        <div className="vert-text">技術</div>
+                        <div aria-hidden="true" className="vert-text">技術</div>
                         <h2 className="offset-shadow-text" style={{ fontSize: '2rem', marginBottom: '14px' }}>HOW IT WORKS</h2>
                         <p className="comic-dialogue">
-                            Describe any electronics project. Our AI matches you with exact components from the OPAC Labs catalog!
+                            Describe a software, hardware, or connected project. We will sketch the scope and the steps to bring it to life.
                         </p>
                     </div>
 
                     <div className="panel panel-half" style={{ backgroundColor: 'var(--opac-pink)' }}>
-                        <div className="ink-splat" style={{ width: '80px', height: '80px', top: '-15px', right: '-15px' }}></div>
-                        <div className="vert-text">目標</div>
+                        <div aria-hidden="true" className="ink-splat" style={{ width: '80px', height: '80px', top: '-15px', right: '-15px' }}></div>
+                        <div aria-hidden="true" className="vert-text">目標</div>
                         <h2 className="offset-shadow-text" style={{ fontSize: '2rem', marginBottom: '14px', position: 'relative', zIndex: 2 }}>POWERED BY AI</h2>
                         <p className="comic-dialogue" style={{ position: 'relative', zIndex: 2 }}>
-                            GPT-4o-mini analyses your idea and picks components with clear explanations. Click any suggestion to view it!
+                            Get a first-pass project plan, then send your brief to our team for a real review and proposal.
                         </p>
                     </div>
 
@@ -743,8 +687,8 @@ export default function BuildProject() {
                         <h2 className="manga-title" style={{ fontSize: 'clamp(2.5rem, 5vw, 5rem)', marginBottom: '28px', color: 'var(--opac-accent)' }}>
                             START BUILDING TODAY
                         </h2>
-                        <button onClick={() => router.push('/project')} className="manga-btn" style={{ background: '#fff', color: '#111', boxShadow: '-8px 8px 0px var(--opac-yellow)' }}>
-                            VIEW STUDENT PROJECTS
+                        <button onClick={handleStartBrief} className="manga-btn" style={{ background: '#fff', color: '#111', boxShadow: '-8px 8px 0px var(--opac-yellow)' }}>
+                            SEND YOUR PROJECT BRIEF
                         </button>
                     </div>
 

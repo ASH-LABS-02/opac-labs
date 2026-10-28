@@ -18,10 +18,10 @@ export default function Home() {
             <section className={styles.hero} aria-labelledby="hero-title">
                 <div className={styles.heroCopy}>
                     <h1 id="hero-title">Architect<br />the <span>future.</span></h1>
-                    <p>Hardware, software, and AIoT projects.<br />Turn your next big idea into something real.</p>
+                    <p>Custom software, hardware, and connected projects.<br />We design and build around your idea.</p>
                     <div className={styles.actions}>
                         <Link href="/request-project" className={styles.button}>Start a project <span aria-hidden="true">↗</span></Link>
-                        <Link href="/project" className={styles.textLink}>Explore our work <span aria-hidden="true">→</span></Link>
+                        <Link href="/projects" className={styles.textLink}>Explore our work <span aria-hidden="true">→</span></Link>
                     </div>
                 </div>
                 <CircuitSketch />
@@ -45,24 +45,24 @@ export default function Home() {
             <section className={`${styles.section} ${styles.prototypes}`} aria-labelledby="prototypes-title">
                 <div className={styles.sectionHeading}>
                     <h2 id="prototypes-title">Built at OPAC.</h2>
-                    <Link href="/project" className={styles.textLink}>Explore our work <span aria-hidden="true">→</span></Link>
+                    <Link href="/projects" className={styles.textLink}>Explore our work <span aria-hidden="true">→</span></Link>
                 </div>
                 <article className={styles.featuredWork}>
-                    <Link href="/project#robotic-vacuum" className={styles.featuredImageLink} aria-label="Explore the smart robotic vacuum project">
+                    <Link href="/projects#robotic-vacuum" className={styles.featuredImageLink} aria-label="Explore the smart robotic vacuum project">
                         <Image src="/projects/robotic-vacuum.webp" alt="Our robotic vacuum, brought to life in a colorful comic-style scene." width={1672} height={941} sizes="(max-width: 850px) calc(100vw - 44px), (max-width: 1440px) 60vw, 820px" />
                     </Link>
                     <div className={styles.featuredCopy}>
                         <span>ROBOTICS + IOT</span>
                         <h3>Small robot.<br />Big clean.</h3>
                         <p>Meet our smart robotic vacuum. Sensors, autonomous navigation, and connected control—all in one real-world build.</p>
-                        <Link href="/project#robotic-vacuum" className={styles.textLink}>Inside the build <span aria-hidden="true">↗</span></Link>
+                        <Link href="/projects#robotic-vacuum" className={styles.textLink}>Inside the build <span aria-hidden="true">↗</span></Link>
                     </div>
                 </article>
             </section>
             <section id="start-project" className={`${styles.cta} ${bannerFont.variable}`} aria-labelledby="cta-title">
                 <h2 id="cta-title">Your next project<br />starts here.</h2>
                 <div className={styles.ctaActions}>
-                    <Link href="/build-project" className={styles.button}>Build with OPAC AI <span aria-hidden="true">→</span></Link>
+                    <Link href="/build-project" className={styles.button}>Plan with OPAC AI <span aria-hidden="true">→</span></Link>
                     <Link href="/request-project" className={styles.textLink}>Have a brief? Request a project</Link>
                 </div>
                 <div className={styles.ctaArt}>

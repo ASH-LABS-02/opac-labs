@@ -1,0 +1,23 @@
+.page { min-height:80vh; padding:64px 24px 100px; background:#f3e9df; color:#151513; background-image:radial-gradient(#14141420 .9px,transparent .9px); background-size:10px 10px; }
+.inner { max-width:1160px; margin:0 auto; }
+.heading { padding:48px; background:#b9dfe9; border:4px solid #151513; box-shadow:9px 9px 0 #151513; position:relative; overflow:hidden; }
+.heading::after { content:'計画'; position:absolute; right:2%; top:-38px; transform:rotate(-12deg); font:900 190px sans-serif; opacity:.07; pointer-events:none; }
+.eyebrow { font:700 12px var(--font-space-mono),monospace; letter-spacing:.12em; }
+.heading h1 { font:400 clamp(48px,7vw,90px)/.95 var(--font-archivo-black),sans-serif; text-transform:uppercase; letter-spacing:-.06em; margin:14px 0; position:relative; z-index:1; }
+.heading h1 span { color:#e5326d; }
+.heading p { font-size:18px; max-width:540px; position:relative; z-index:1; }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:24px; margin:58px 0; }
+.card,.notice { background:#fffdf8; border:3px solid #151513; box-shadow:6px 6px 0 #151513; padding:28px; }
+.card:nth-child(3n+2) { background:#ffe57c; }
+.card:nth-child(3n+3) { background:#f5bfd0; }
+.cardTop,.cardFoot { display:flex; justify-content:space-between; gap:16px; align-items:center; font:700 11px var(--font-space-mono),monospace; text-transform:uppercase; }
+.status { border:2px solid #151513; padding:5px 9px; background:#fff; }
+.card h2,.notice h2 { font:400 26px var(--font-archivo-black),sans-serif; text-transform:uppercase; margin:30px 0 14px; }
+.card p { line-height:1.55; overflow-wrap:anywhere; }
+.cardFoot { border-top:1px solid #15151355; padding-top:18px; margin-top:30px; }
+.notice { margin:58px 0; max-width:640px; }
+.notice h2 { margin-top:0; }
+.action { display:inline-flex; align-items:center; padding:13px 20px; background:#151513; color:white; border:2px solid #151513; font-weight:800; text-transform:uppercase; text-decoration:none; box-shadow:4px 4px 0 #e5326d; }
+.action:hover { background:#e5326d; }
+.bottom { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:24px; margin-top:48px; font:700 14px var(--font-space-mono),monospace; }
+@media(max-width:600px) { .page{padding:34px 18px 70px}.heading{padding:28px}.heading::after{font-size:100px;top:0}.grid{margin-top:42px}.card,.notice{padding:22px} }

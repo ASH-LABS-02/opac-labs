@@ -233,9 +233,9 @@ export default function StudentProjectsLandingPage() {
 
                     {/* Hero Panel */}
                     <div className="panel panel-hero" style={{ overflow: 'visible' }}>
-                        <div className="vert-text" style={{ fontSize: '6rem', letterSpacing: '-20px' }}>学生</div>
+                        <div aria-hidden="true" className="vert-text" style={{ fontSize: '6rem', letterSpacing: '-20px' }}>学生</div>
 
-                        <div className="action-burst"></div>
+                        <div aria-hidden="true" className="action-burst"></div>
 
                         <div className="speech-bubble comic-dialogue" style={{ maxWidth: '300px', zIndex: 10 }}>
                             <strong>STUDENT PROJECTS:</strong> Let us build your project!
@@ -254,28 +254,28 @@ export default function StudentProjectsLandingPage() {
 
                     {/* Competency Panel 1 */}
                     <div className="panel panel-half-l">
-                        <div className="vert-text">ハードウェア</div>
+                        <div aria-hidden="true" className="vert-text">ハードウェア</div>
                         <h2 className="offset-shadow-text" style={{ fontSize: '3rem', marginBottom: '20px' }}>HARDWARE & CIRCUITS</h2>
                         <p className="comic-dialogue">
-                            Custom project design based on your idea! We set up the hardware components, physical circuit design, and prototype assembly.
+                            From circuit design to working prototypes, we build the hardware side of your idea and connect it to the software it needs.
                         </p>
                     </div>
 
                     {/* Competency Panel 2 */}
                     <div className="panel panel-half-r" style={{ backgroundColor: 'var(--opac-pink)' }}>
-                        <div className="ink-splat" style={{ width: '100px', height: '100px', top: '-20px', right: '-20px' }}></div>
-                        <div className="vert-text">ソフトウェア</div>
+                        <div aria-hidden="true" className="ink-splat" style={{ width: '100px', height: '100px', top: '-20px', right: '-20px' }}></div>
+                        <div aria-hidden="true" className="vert-text">ソフトウェア</div>
                         <h2 className="offset-shadow-text" style={{ fontSize: '2.5rem', marginBottom: '20px', position: 'relative', zIndex: 2 }}>CODE & REPORTS</h2>
                         <p className="comic-dialogue" style={{ position: 'relative', zIndex: 2 }}>
-                            We provide full source code with explanations, plus guidance for your project documentation and reports!
+                            We build the software too: apps, dashboards, APIs, embedded code, and clear documentation for your project.
                         </p>
                     </div>
 
                     {/* CTA Panel */}
                     <div className="panel panel-hero" style={{ backgroundColor: '#111', color: 'var(--opac-paper)', textAlign: 'center', padding: '80px 20px' }}>
                         <h2 className="manga-title" style={{ fontSize: 'clamp(3rem, 6vw, 6rem)', marginBottom: '30px', color: 'var(--opac-accent)' }}>GET STARTED TODAY</h2>
-                        <Link href="/request-project" className="manga-btn" style={{ background: '#fff', color: '#111', boxShadow: '-8px 8px 0px var(--opac-yellow)' }}>
-                            TELL US YOUR IDEA!
+                        <Link href="/projects" className="manga-btn" style={{ background: '#fff', color: '#111', boxShadow: '-8px 8px 0px var(--opac-yellow)' }}>
+                            Explore our works
                         </Link>
                     </div>
 

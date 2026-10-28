@@ -40,13 +40,13 @@ export default function Register() {
             await signUpWithEmail(email, password, name);
             setSuccess(true);
         } catch (error: unknown) {
-            const err = error as { code?: string; message?: string };
+            const err = error as { code?: string };
             if (err.code === 'auth/email-already-in-use') {
-                setError('This email is already registered');
+                setError('Could not create an account with those details. If you already have one, sign in.');
             } else if (err.code === 'auth/weak-password') {
                 setError('Password is too weak');
             } else {
-                setError(err.message || 'Failed to create account');
+                setError('Could not create an account. Please check your details and try again.');
             }
         } finally {
             setIsLoading(false);
@@ -57,9 +57,8 @@ export default function Register() {
         setError('');
         try {
             await signInWithGoogle();
-        } catch (error: unknown) {
-            const err = error as { message?: string };
-            setError(err.message || 'Failed to sign up with Google');
+        } catch {
+            setError('Could not sign up with Google. Please try again.');
         }
     };
 
@@ -71,8 +70,8 @@ export default function Register() {
                     <div className="auth-logo">OPAC LABS</div>
                     <div className="auth-card">
                         <div className="auth-header">
-                            <h1>Verify Your Email</h1>
-                            <p>We&apos;ve sent a verification link to your email</p>
+                            <h1>{process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true' ? 'Account Created' : 'Verify Your Email'}</h1>
+                            <p>{process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true' ? 'Your local account is ready' : 'We\'ve sent a verification link to your email'}</p>
                         </div>
 
                         <div style={{ 
@@ -84,14 +83,14 @@ export default function Register() {
                             lineHeight: '1.6'
                         }}>
                             <p style={{ marginBottom: '12px' }}>
-                                <strong>Check your inbox at:</strong><br />
+                                <strong>{process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true' ? 'Your account:' : 'Check your inbox at:'}</strong><br />
                                 {email}
                             </p>
                             <p style={{ marginBottom: '12px' }}>
-                                Click the verification link in the email to activate your account.
+                                {process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true' ? 'Sign in to continue.' : 'Click the verification link in the email to activate your account.'}
                             </p>
                             <p style={{ color: '#666', fontSize: '13px' }}>
-                                Didn&apos;t receive the email? Check your spam folder.
+                                {process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true' ? 'This account lives in the local Firebase emulator.' : 'Didn\'t receive the email? Check your spam folder.'}
                             </p>
                         </div>
 

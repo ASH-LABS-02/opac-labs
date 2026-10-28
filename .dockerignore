@@ -1,0 +1,12 @@
+node_modules
+admin-app/node_modules
+.next
+.git
+.env*
+!.env.example
+*.log
+production.env
+secrets
+coverage
+out
+build
