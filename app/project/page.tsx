@@ -53,6 +53,15 @@ export default function ProjectsLandingPage() {
                     <p>A selection of things we’ve built.<br />Hardware, software, and the intelligence in between.</p>
                 </header>
 
+                <section className={styles.portfolioLink} aria-labelledby="portfolio-link-title">
+                    <div>
+                        <p className={styles.index}>Websites <span>/</span> Personal portfolios</p>
+                        <h2 id="portfolio-link-title">Build your portfolio website.</h2>
+                        <p>Explore a real portfolio build. Choose a direction you love, or bring us an idea of your own.</p>
+                    </div>
+                    <Link className={styles.button} href="/projects/portfolio-websites">Explore portfolio websites <span aria-hidden="true">↗</span></Link>
+                </section>
+
                 <article id="robotic-vacuum" className={styles.featured} aria-labelledby="vacuum-title">
                     <p className={styles.index}>01 <span>/</span> Robotics + IoT</p>
                     <div className={styles.featureGrid}>

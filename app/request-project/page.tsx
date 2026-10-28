@@ -62,8 +62,14 @@ export default function RequestProject() {
     const [reference, setReference] = useState('');
 
     useEffect(() => {
-        const idea = new URLSearchParams(window.location.search).get('idea');
-        if (idea) setFormData(previous => ({ ...previous, description: previous.description || idea.slice(0, 3000) }));
+        const params = new URLSearchParams(window.location.search);
+        const idea = params.get('idea');
+        const projectType = params.get('projectType');
+        if (idea || projectType === 'software') setFormData(previous => ({
+            ...previous,
+            description: previous.description || idea?.slice(0, 3000) || '',
+            projectType: previous.projectType || (projectType === 'software' ? 'software' : ''),
+        }));
     }, []);
 
     useEffect(() => {
