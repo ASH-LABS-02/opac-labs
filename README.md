@@ -25,6 +25,8 @@ Use [Netlify Free and MongoDB Atlas](deploy/NETLIFY.md). The public app, API rou
 
 Set the server-only values in `.env.example` through Netlify's production environment settings. A real Atlas connection, random auth secret and working SMTP transport are required. Brevo Free is the selected SMTP provider. Verify the business sender and activate transactional sending; a Gmail app password remains an optional alternative. `npm run build:netlify` blocks missing or unsafe production configuration. Never put database, auth or email secrets in `NEXT_PUBLIC_*` variables.
 
+After `netlify build --context production`, use `npm run deploy:netlify` to publish the adapter's curated static assets and private server function. A separate no-build deployment must target `.netlify/static`, because `.next` contains internal server files. See the deployment guide for the dashboard visibility step.
+
 For a Linux Docker host, fill `production.env.example` privately and run:
 
 ```bash

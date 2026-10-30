@@ -40,9 +40,17 @@ The application creates its indexes before serving database operations. Verify u
 
 1. Finish the Atlas user/network rules and privately configure SMTP, MongoDB and the auth secret. Remove obsolete Firebase/Redis/old Vite variables from the production project once replacing the old deployment.
 2. Run the security, hosting, integration, type and build checks. Build the reviewed source with `netlify build --context production`. This invokes the guarded `build:netlify` command.
-3. Deploy the complete adapter output with `netlify deploy --prod --no-build --site opaclab-web`. Do not pass `--context` with `--no-build`; the CLI rejects that combination. Publish the `admin-app` redirect separately if retaining its hostname.
+3. Run `npm run deploy:netlify`. It checks the prepared assets and deploys **`.netlify/static`** alongside the adapter's private server function. When using separate build and `--no-build` commands, always pass `--dir .netlify/static`: the adapter restores `.next` after the build, and publishing that directory can expose internal server files. Keep `[build].publish = ".next"` for the adapter's build input. Do not pass `--context` with `--no-build`; the CLI rejects that combination. Publish the `admin-app` redirect separately if retaining its hostname.
 4. Verify the actual HTTPS health endpoint, verification email delivery, sign-in/out/reset, draft restoration, project submission/tracking, profile editing, planner/history, owner isolation, rejected cross-origin requests and shared quotas. Create the real staff account, verify email, grant its role from a trusted environment and test TOTP enrollment, MFA login, inbox/status updates and revocation.
 5. Push the reviewed current source to GitHub. A successful local build alone does not establish a working cloud database or email provider.
+
+## Public access after deployment
+
+New Netlify projects can inherit **Private** visibility from the workspace. A successful production deployment can therefore still return a Netlify login page and HTTP 401 before any application code runs.
+
+For `opaclab-web` and the optional `opaclab-admin` redirect, open **Project configuration → General → Visitor access → Project visibility → Edit visibility**. Choose **Customize this project's visibility** if inheriting a default, select **Public**, and save. Keep preview access private. Change only these projects, rather than the workspace default.
+
+Netlify documents visibility as a dashboard-only setting, without a public API or CLI command. See [Netlify's visibility instructions](https://www.netlify.com/knowledge-base/how-to-password-protect-a-netlify-site-or-deploy-previews/). Making the production site public allows visitors to reach the application; project submission still requires a verified account, and staff data still requires the admin role plus fresh authenticator verification.
 
 Netlify Free and Atlas M0 have usage limits. Keep paid AI disabled. Configure a domain later (currently considering `opaclab.in`), then update `BETTER_AUTH_URL` and redeploy. Sign in again after changing origins.
 

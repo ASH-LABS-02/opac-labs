@@ -11,6 +11,17 @@
 # MongoDB, auth and email credentials must be set in Netlify's environment UI/API
 # for BOTH Builds and Functions; values in this file do not reach functions.
 
+# A separate CLI --no-build deploy reads this file rather than the adapter's
+# temporary build-time configuration. Keep Next's image endpoint on Image CDN.
+[[redirects]]
+  from = "/_next/image"
+  to = "/.netlify/images?url=:url&w=:width&q=:quality"
+  status = 200
+  [redirects.query]
+    url = ":url"
+    w = ":width"
+    q = ":quality"
+
 [[headers]]
   for = "/*"
   [headers.values]

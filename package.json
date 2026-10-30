@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "build:netlify": "node scripts/production-preflight.mjs --platform=netlify && next build",
+    "deploy:netlify": "node scripts/verify-netlify-artifacts.mjs && npx --yes netlify-cli@27.16.0 deploy --prod --no-build --dir .netlify/static --site 9f59e1ae-93a0-49dd-870d-20d3114c5f50",
     "start": "next start",
     "preview:local": "node scripts/local-preview.mjs",
     "lint": "eslint",
