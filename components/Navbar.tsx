@@ -2,27 +2,30 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useFirebaseAuth } from '@/contexts/FirebaseAuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useRef, useState } from 'react';
 import styles from './Navbar.module.css';
 
 const links = [
     { href: '/student-projects', label: 'Student Projects' },
-    { href: '/projects', label: 'Our Work' },
+    { href: '/our-works', label: 'Our Work' },
+    { href: '/services/erp-crm', label: 'ERP & CRM' },
     { href: '/build-project', label: 'Plan Your Project' },
     { href: '/contact', label: 'Contact' },
 ];
 
 export default function Navbar() {
     const pathname = usePathname();
-    const { user, signOut } = useFirebaseAuth();
+    const { user, signOut } = useAuth();
     const [menu, setMenu] = useState<'account' | 'mobile' | null>(null);
+    const [menuError, setMenuError] = useState('');
     const [menuPath, setMenuPath] = useState(pathname);
     const navRef = useRef<HTMLElement>(null);
     const accountRef = useRef<HTMLButtonElement>(null);
     const mobileRef = useRef<HTMLButtonElement>(null);
     const openMenu = menuPath === pathname ? menu : null;
     const toggle = (next: 'account' | 'mobile') => {
+        setMenuError('');
         setMenuPath(pathname);
         setMenu(openMenu === next ? null : next);
     };
@@ -68,10 +71,11 @@ export default function Navbar() {
                             <div className={styles.user}><strong>{user.displayName || 'Your account'}</strong><span>{user.email}</span></div>
                             <Link href="/profile" onClick={() => setMenu(null)}>My profile</Link>
                             <Link href="/my-projects" onClick={() => setMenu(null)}>My projects</Link>
-                            <button onClick={async () => { if (window.confirm('Are you sure you want to logout?')) { try { await signOut(); setMenu(null); } catch (error) { console.error(error); } } }}>Sign out</button>
+                            <button onClick={async () => { try { await signOut(); setMenu(null); } catch { setMenuError('Could not sign out. Please try again.'); } }}>Sign out</button>
+                            {menuError && <p role="alert">{menuError}</p>}
                         </> : <>
-                            <Link href="/login" onClick={() => setMenu(null)}>Sign in</Link>
-                            <Link href="/register" onClick={() => setMenu(null)}>Create account</Link>
+                            <Link href={pathname === '/request-project' ? '/login?next=/request-project' : '/login'} onClick={() => setMenu(null)}>Sign in</Link>
+                            <Link href={pathname === '/request-project' ? '/register?next=/request-project' : '/register'} onClick={() => setMenu(null)}>Create account</Link>
                         </>}
                     </div>}
                 </div>

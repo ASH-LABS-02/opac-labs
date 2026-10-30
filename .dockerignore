@@ -1,6 +1,7 @@
 node_modules
 admin-app/node_modules
 .next
+.netlify
 .git
 .env*
 !.env.example

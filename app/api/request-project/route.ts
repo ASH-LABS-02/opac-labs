@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { FieldValue } from 'firebase-admin/firestore';
-import { getAdminDb, getAuthenticatedUser, hasAdminAccess } from '@/lib/firebaseAdmin';
-import { RequestError, clientAddress, enforceRateLimit, readJsonRequest, requestErrorResponse, requireAppCheck, validEmail, validName, validPhone } from '@/lib/serverSecurity';
+import { randomUUID } from 'node:crypto';
+import { records, publicRecord } from '@/lib/database';
+import { getAuthenticatedUser } from '@/lib/auth';
+import { RequestError, clientAddress, enforceRateLimit, readJsonRequest, requestErrorResponse, validEmail, validName, validPhone } from '@/lib/serverSecurity';
 import { expiresAt } from '@/lib/retention';
 
 export const dynamic = 'force-dynamic';
 
 const TYPE_LABELS: Record<string, string> = {
     software: 'Software project',
+    erp: 'ERP system',
+    crm: 'CRM system',
     hardware: 'Hardware project',
     hybrid: 'Software + hardware project',
     iot: 'IoT & smart devices',
@@ -36,7 +39,8 @@ export async function POST(req: NextRequest) {
     try {
         await enforceRateLimit('project-global', 'all', 1000, 60_000);
         await enforceRateLimit('project-ip', clientAddress(req), 15, 60_000);
-        await requireAppCheck(req);
+        const user = await getAuthenticatedUser(req);
+        if (!user) return NextResponse.json({ error: 'Sign in before sending your project brief.', code: 'SIGN_IN_REQUIRED' }, { status: 401 });
         const body = await readJsonRequest<Record<string, unknown>>(req, 12 * 1024);
         if (!body || typeof body !== 'object' || Array.isArray(body)) {
             return NextResponse.json({ error: 'Please complete the project brief with valid contact details.' }, { status: 400 });
@@ -52,10 +56,7 @@ export async function POST(req: NextRequest) {
         }
 
         await enforceRateLimit('project-email', email.toLowerCase(), 5, 15 * 60_000);
-        const user = await getAuthenticatedUser(req);
-        if (req.headers.has('authorization') && !user) {
-            return NextResponse.json({ error: 'Your sign-in expired. Please sign in again.' }, { status: 401 });
-        }
+        await enforceRateLimit('project-user', user.uid, 5, 15 * 60_000);
         const clean = {
             name: name.trim(),
             email: email.trim().toLowerCase(),
@@ -65,11 +66,12 @@ export async function POST(req: NextRequest) {
             budget,
             timeline,
         };
-        const ref = await getAdminDb().collection('projectRequests').add({
+        const ref = { id: randomUUID() };
+        await (await records('projectRequests')).insertOne({ _id: ref.id,
             ...clean,
-            userId: user?.uid ?? null,
+            userId: user.uid,
             status: 'pending',
-            createdAt: FieldValue.serverTimestamp(),
+            createdAt: new Date(),
             expiresAt: expiresAt('PROJECT_RETENTION_DAYS', 365),
         });
 
@@ -95,22 +97,14 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-    const user = await getAuthenticatedUser(req);
-    if (!user) return NextResponse.json({ error: 'Sign in required' }, { status: 401 });
     try {
+        const user = await getAuthenticatedUser(req);
+        if (!user) return NextResponse.json({ error: 'Sign in required' }, { status: 401 });
         await enforceRateLimit('project-read-user', user.uid, 30, 60_000);
-        const collection = getAdminDb().collection('projectRequests');
-        const snap = await hasAdminAccess(user)
-            ? await collection.orderBy('createdAt', 'desc').limit(100).get()
-            : await collection.where('userId', '==', user.uid).limit(100).get();
-        const requests = snap.docs.map(doc => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                ...data,
-                createdAt: data.createdAt?.toDate().toISOString() ?? null,
-            };
-        }).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+        const collection = await records('projectRequests');
+        const requests = (await collection.find({ userId: user.uid }, { projection: {
+            _id: 1, projectType: 1, description: 1, budget: 1, timeline: 1, status: 1, createdAt: 1, updatedAt: 1,
+        } }).sort({ createdAt: -1 }).limit(100).toArray()).map(publicRecord);
         return NextResponse.json({ requests });
     } catch (error) {
         if (!(error instanceof RequestError)) console.error('Could not load project requests:', error);

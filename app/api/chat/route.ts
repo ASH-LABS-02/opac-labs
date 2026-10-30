@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { getAuthenticatedUser } from '@/lib/firebaseAdmin';
-import { RequestError, clientAddress, enforceRateLimit, readJsonRequest, requestErrorResponse, requireAppCheck } from '@/lib/serverSecurity';
+import { getAuthenticatedUser } from '@/lib/auth';
+import { RequestError, clientAddress, enforceRateLimit, readJsonRequest, requestErrorResponse } from '@/lib/serverSecurity';
 import { getOpenAiKey } from '@/lib/serverSecrets';
 
 export const dynamic = 'force-dynamic';
@@ -10,12 +10,13 @@ type Step = { name: string; reason: string };
 
 function outlineProject(idea: string): { message: string; suggestions: Step[] } {
     const text = idea.toLowerCase();
-    const software = /website|web app|mobile|app|dashboard|api|platform|software|saas|database|portal/.test(text);
+    const businessSystem = /\berp\b|\bcrm\b|customer relationship|inventory management|sales pipeline|business operations/.test(text);
+    const software = businessSystem || /website|web app|mobile|app|dashboard|api|platform|software|saas|database|portal/.test(text);
     const hardware = /robot|sensor|device|circuit|arduino|esp32|iot|prototype|embedded|motor|irrigat|automation/.test(text);
-    const focus = software && hardware ? 'a connected software and hardware project' : software ? 'a software project' : hardware ? 'a hardware project' : 'a custom project';
+    const focus = software && hardware ? 'a connected software and hardware project' : businessSystem ? 'a custom ERP or CRM system' : software ? 'a software project' : hardware ? 'a hardware project' : 'a custom project';
     const suggestions: Step[] = [
         { name: 'Define the outcome', reason: 'Clarify who will use it, the problem it solves, and what a successful first version must do.' },
-        ...(software ? [{ name: 'Design the software', reason: 'Map the screens, data, integrations, and core user journey before development.' }] : []),
+        ...(software ? [{ name: businessSystem ? 'Map the workflow' : 'Design the software', reason: businessSystem ? 'Identify your teams, records, approvals, and existing tools before choosing the first modules.' : 'Map the screens, data, integrations, and core user journey before development.' }] : []),
         ...(hardware ? [{ name: 'Prototype the hardware', reason: 'Plan the electronics, enclosure, power, and real-world testing needed for a working build.' }] : []),
         { name: 'Build and validate', reason: 'Create a focused prototype, test the key scenarios, then refine it with your feedback.' },
     ];
@@ -29,7 +30,6 @@ export async function POST(req: NextRequest) {
     try {
         await enforceRateLimit('chat-global', 'all', 2000, 60_000);
         await enforceRateLimit('chat-ip', clientAddress(req), 40, 60_000);
-        await requireAppCheck(req);
         const body = await readJsonRequest<Record<string, unknown>>(req, 32 * 1024);
         const messages = body?.messages;
         if (!Array.isArray(messages) || messages.length < 1 || messages.length > 10 ||
@@ -47,13 +47,23 @@ export async function POST(req: NextRequest) {
         if (!user || user.email_verified !== true) return NextResponse.json(fallback);
         await enforceRateLimit('paid-chat-user', user.uid, 10, 60_000);
         await enforceRateLimit('paid-chat-global', 'all', 100, 60_000);
+        try {
+            // Reserve before the provider call; failed calls also consume quota.
+            await enforceRateLimit('paid-chat-user-daily', user.uid, 20, 86_400_000);
+            await enforceRateLimit('paid-chat-site-daily', 'all', 200, 86_400_000);
+        } catch (error) {
+            if (error instanceof RequestError && error.status === 429) {
+                return NextResponse.json({ ...fallback, message: `Today's AI planning allowance has been reached. Here is a basic project outline; you can still send your brief to our team. ${fallback.message}` });
+            }
+            throw error;
+        }
 
         try {
-            const completion = await new OpenAI({ apiKey: openAiKey }).chat.completions.create({
+            const completion = await new OpenAI({ apiKey: openAiKey, timeout: 20_000, maxRetries: 0 }).chat.completions.create({
                 model: 'gpt-4o-mini',
                 messages: [
-                    { role: 'system', content: 'You are OPAC Labs project planning assistant. OPAC Labs provides custom software and hardware project services; it does not sell components. Return JSON with a concise message and 2-4 suggestions, each with name and reason. Suggest scope, architecture, prototype, testing, or delivery steps. Do not quote prices, claim a project is accepted, or promise a deadline. Ask for missing requirements when needed.' },
-                    ...messages,
+                    { role: 'system', content: 'You are OPAC Labs project planning assistant. OPAC Labs provides custom software, ERP and CRM, and hardware project services; it does not sell components. Only answer questions related to planning OPAC software, hardware, ERP, CRM, or portfolio projects. Briefly redirect unrelated requests to project planning. Return JSON with a concise message and 2-4 suggestions, each with name and reason. Suggest scope, architecture, prototype, testing, or delivery steps. Do not quote prices, claim a project is accepted, or promise a deadline. Ask for missing requirements when needed.' },
+                    ...messages.map(message => ({ role: message.role as 'user' | 'assistant', content: message.content as string })),
                 ],
                 response_format: { type: 'json_object' },
                 max_tokens: 700,

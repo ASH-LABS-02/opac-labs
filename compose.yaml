@@ -1,66 +1,35 @@
+name: opac-local
 services:
-  emulators:
-    build:
-      context: .
-      dockerfile: Dockerfile.emulators
-    ports:
-      - "127.0.0.1:4000:4000"
-      - "127.0.0.1:8080:8080"
-      - "127.0.0.1:9099:9099"
-    volumes:
-      - firebase-data:/data
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
   web:
-    image: opac-labs-web:local
-    build:
-      context: .
-      args:
-        NEXT_PUBLIC_USE_FIREBASE_EMULATORS: "true"
-    ports:
-      - "127.0.0.1:3000:3000"
+    build: .
+    ports: ["127.0.0.1:3000:3000"]
     environment:
-      NEXT_PUBLIC_FIREBASE_PROJECT_ID: demo-opac-labs
-      FIRESTORE_EMULATOR_HOST: emulators:8080
-      FIREBASE_AUTH_EMULATOR_HOST: emulators:9099
-      GCLOUD_PROJECT: demo-opac-labs
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      MONGODB_URI: mongodb://opac:${MONGO_LOCAL_PASSWORD:-opac-local-only-password}@mongo:27017/opac_labs?authSource=admin
+      MONGODB_DB: opac_labs
+      MONGODB_TRANSACTIONS: "false"
+      BETTER_AUTH_URL: http://localhost:3000
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-local-development-only-secret-change-before-deployment-73b2}
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_ALLOW_INSECURE_LOCAL: "true"
+      EMAIL_FROM: OPAC Labs <local@opac.test>
+      OPAC_PAID_AI_ENABLED: "false"
     depends_on:
-      emulators:
-        condition: service_healthy
-  admin:
-    build:
-      context: ./admin-app
-      dockerfile: Dockerfile
-    ports:
-      - "127.0.0.1:5173:5173"
+      mongo: { condition: service_healthy }
+      mailpit: { condition: service_started }
+  mongo:
+    image: mongo:8.0
     environment:
-      VITE_FIREBASE_API_KEY: demo-key
-      VITE_FIREBASE_AUTH_DOMAIN: localhost
-      VITE_FIREBASE_PROJECT_ID: demo-opac-labs
-      VITE_FIREBASE_STORAGE_BUCKET: demo-opac-labs.appspot.com
-      VITE_FIREBASE_MESSAGING_SENDER_ID: "123456789"
-      VITE_FIREBASE_APP_ID: "1:123456789:web:local"
-      VITE_USE_FIREBASE_EMULATORS: "true"
-      VITE_FIREBASE_EMULATOR_HOST: 127.0.0.1
-    depends_on:
-      emulators:
-        condition: service_healthy
-  admin-bootstrap:
-    image: opac-labs-web:local
-    command: ["node", "scripts/bootstrap-admin.mjs"]
-    environment:
-      NEXT_PUBLIC_FIREBASE_PROJECT_ID: demo-opac-labs
-      FIRESTORE_EMULATOR_HOST: emulators:8080
-      FIREBASE_AUTH_EMULATOR_HOST: emulators:9099
-      ADMIN_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL:-}
-      ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-}
-    depends_on:
-      emulators:
-        condition: service_healthy
-    profiles: ["setup"]
+      MONGO_INITDB_ROOT_USERNAME: opac
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_LOCAL_PASSWORD:-opac-local-only-password}
+    volumes: [mongo-data:/data/db]
+    healthcheck:
+      test: [CMD, mongosh, --quiet, --eval, "db.getSiblingDB('admin').auth(process.env.MONGO_INITDB_ROOT_USERNAME,process.env.MONGO_INITDB_ROOT_PASSWORD);db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  mailpit:
+    image: axllent/mailpit:latest
+    ports: ["127.0.0.1:8025:8025"]
 volumes:
-  firebase-data:
+  mongo-data:

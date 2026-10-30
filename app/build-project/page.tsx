@@ -2,9 +2,9 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
-import { useFirebaseAuth } from '@/contexts/FirebaseAuthContext';
-import { appCheckHeaders } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Suggestion { name: string; reason: string; }
 interface Message { role: 'user' | 'assistant'; content: string; suggestions?: Suggestion[]; }
@@ -391,10 +391,17 @@ h1, h2, h3, .manga-title {
 `;
 
 export default function BuildProject() {
+    const { user } = useAuth();
+    return <ProjectPlanner key={user?.uid || 'guest'} />;
+}
+
+function ProjectPlanner() {
     const router = useRouter();
-    const { user } = useFirebaseAuth();
+    const { user } = useAuth();
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
+    const [chatError, setChatError] = useState('');
+    const inputRef = useRef<HTMLInputElement>(null);
     const [loading, setLoading] = useState(false);
     const [sessions, setSessions] = useState<Session[]>([]);
     const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -414,7 +421,7 @@ export default function BuildProject() {
         setLoadingSessions(true);
         setHistoryError('');
         try {
-            const response = await fetch('/api/chat/history', { headers: { Authorization: `Bearer ${await user.getIdToken()}` } });
+            const response = await fetch('/api/chat/history', { signal: AbortSignal.timeout(15_000) });
             if (!response.ok) throw new Error('Could not load chat history');
             const data = await response.json();
             setSessions((data.sessions || []).map((session: { id: string; title: string; createdAt: string | null; messages: Message[] }) => ({
@@ -429,15 +436,15 @@ export default function BuildProject() {
 
     useEffect(() => { loadSessions(); }, [loadSessions]);
 
-    const startNewSession = () => { if (loading) return; setActiveSessionId(null); setMessages([]); setInput(''); };
-    const loadSession = (s: Session) => { setActiveSessionId(s.id); setMessages(s.messages.slice(-10)); };
+    const startNewSession = () => { if (loading) return; setActiveSessionId(null); setMessages([]); setInput(''); setChatError(''); inputRef.current?.focus(); };
+    const loadSession = (s: Session) => { if (loading) return; setActiveSessionId(s.id); setMessages(s.messages.slice(-10)); setChatError(''); };
 
     const persistSession = async (updatedMessages: Message[]) => {
         if (!user) return;
         const title = updatedMessages.find(m => m.role === 'user')?.content.slice(0, 50) || 'New chat';
         const response = await fetch('/api/chat/history', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await user.getIdToken()}` },
+            method: 'POST', signal: AbortSignal.timeout(30_000),
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sessionId: activeSessionId || undefined, messages: updatedMessages }),
         });
         if (!response.ok) {
@@ -457,12 +464,12 @@ export default function BuildProject() {
     };
 
     const deleteSession = async (sessionId: string) => {
-        if (!user || deletingSessionId) return;
+        if (!user || deletingSessionId || loading) return;
         setDeletingSessionId(sessionId);
         setHistoryError('');
         try {
             const response = await fetch(`/api/chat/history?sessionId=${encodeURIComponent(sessionId)}`, {
-                method: 'DELETE', headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+                method: 'DELETE', signal: AbortSignal.timeout(15_000),
             });
             if (!response.ok) throw new Error('Could not delete this session.');
             setSessions(previous => previous.filter(session => session.id !== sessionId));
@@ -478,16 +485,17 @@ export default function BuildProject() {
         const text = input.trim();
         if (!text || text.length > 1500 || loading) return;
         const userMsg: Message = { role: 'user', content: text };
+        setChatError('');
         const updated = [...messages.slice(-8), userMsg];
         setMessages(updated); setInput(''); setLoading(true);
         try {
             const res = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...(await appCheckHeaders()), ...(user ? { Authorization: `Bearer ${await user.getIdToken()}` } : {}) },
+                method: 'POST', signal: AbortSignal.timeout(30_000),
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ messages: updated.map(m => ({ role: m.role, content: m.content })) }),
             });
-            if (!res.ok) throw new Error('Chat request failed');
             const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Could not plan your project. Please try again.');
             const aiMsg: Message = {
                 role: 'assistant',
                 content: data.message || 'Sorry, I could not process that.',
@@ -496,18 +504,25 @@ export default function BuildProject() {
             const final = [...updated, aiMsg];
             setMessages(final);
             if (user) await persistSession(final).catch(error => setHistoryError(error instanceof Error ? error.message : 'Could not save chat history.'));
-        } catch {
-            setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }]);
+        } catch (error) {
+            setInput(text);
+            setMessages(messages);
+            setChatError(error instanceof Error && error.name !== 'TimeoutError' ? error.message : 'The request took too long. Your message is ready to retry.');
         } finally { setLoading(false); }
     };
 
     const handleStartBrief = () => {
         const idea = [...messages].reverse().find(m => m.role === 'user')?.content || '';
-        router.push(`/request-project?idea=${encodeURIComponent(idea)}`);
+        try {
+            sessionStorage.setItem('opac-project-draft', idea.slice(0, 3000));
+            router.push('/request-project');
+        } catch {
+            setHistoryError('Your browser could not transfer the brief. Copy your idea and open Request a project.');
+        }
     };
 
     return (
-        <main className="bp-manga-page">
+        <main id="main-content" tabIndex={-1} className="bp-manga-page">
             <style dangerouslySetInnerHTML={{ __html: PAGE_CSS }} />
 
             <svg style={{ width: 0, height: 0, position: 'absolute' }}>
@@ -602,10 +617,11 @@ export default function BuildProject() {
                         <div className="chat-input-bar">
                             <input
                                 type="text"
+                                ref={inputRef} aria-label="Your project idea"
                                 value={input}
                                 onChange={e => setInput(e.target.value)}
                                 maxLength={1500}
-                                onKeyDown={e => e.key === 'Enter' && sendMessage()}
+                                onKeyDown={e => e.key === 'Enter' && !e.nativeEvent.isComposing && sendMessage()}
                                 placeholder="Describe your project idea..."
                                 disabled={loading}
                                 className="chat-input"
@@ -614,6 +630,7 @@ export default function BuildProject() {
                                 SEND
                             </button>
                         </div>
+                        {chatError && <p className="chat-error" role="alert">{chatError}</p>}
                         <p style={{ margin: '6px 16px 12px', fontSize: '10px', color: '#555', lineHeight: 1.5 }}>
                             Signed-in chats may be processed by an AI provider when enabled. Avoid sharing passwords or confidential data.
                         </p>
@@ -626,7 +643,7 @@ export default function BuildProject() {
                             {historyError && <p role="alert" style={{ fontSize: '11px', color: '#a3152d', padding: '10px 14px', margin: 0 }}>{historyError}</p>}
                             {!user && (
                                 <p style={{ fontSize: '11px', color: '#555', padding: '12px 14px', lineHeight: 1.6, fontFamily: 'var(--font-space-mono), monospace', fontStyle: 'italic' }}>
-                                    Sign in to save sessions.
+                                    <Link href="/login?next=/build-project">Sign in to save sessions.</Link>
                                 </p>
                             )}
                             {loadingSessions && (
@@ -657,7 +674,7 @@ export default function BuildProject() {
                         <div className="sidebar-header" style={{ background: 'var(--opac-yellow)' }}>Quick Ideas</div>
                         <div style={{ overflowY: 'auto', flex: 1 }}>
                             {PROMPTS.map(prompt => (
-                                <button key={prompt} onClick={() => setInput(prompt)} className="prompt-btn">
+                                <button key={prompt} onClick={() => { setInput(prompt); inputRef.current?.focus(); }} className="prompt-btn">
                                     {prompt}
                                 </button>
                             ))}

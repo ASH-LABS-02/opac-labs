@@ -3,6 +3,14 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: 'standalone',
   compress: true,
+  poweredByHeader: false,
+  async redirects() {
+    return [
+      { source: '/project', destination: '/our-works', permanent: true },
+      { source: '/projects', destination: '/our-works', permanent: true },
+      { source: '/projects/portfolio-websites', destination: '/our-works/portfolio-websites', permanent: true },
+    ];
+  },
   async headers() {
     return [
       {

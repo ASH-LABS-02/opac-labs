@@ -1,15 +1,3 @@
-import { NextResponse } from 'next/server';
-import { rateLimiterReady } from '@/lib/serverSecurity';
-import { getAdminApp } from '@/lib/firebaseAdmin';
-
+import { getDatabase } from '@/lib/database';
 export const dynamic = 'force-dynamic';
-
-export async function GET() {
-    let credentialsReady = true;
-    try { getAdminApp(); } catch { credentialsReady = false; }
-    const ready = credentialsReady && await rateLimiterReady();
-    return NextResponse.json({ status: ready ? 'ok' : 'unavailable' }, {
-        status: ready ? 200 : 503,
-        headers: { 'Cache-Control': 'no-store' },
-    });
-}
+export async function GET() { try { await (await getDatabase()).command({ ping: 1 }); return Response.json({ status: 'ok' }, { headers: { 'Cache-Control': 'no-store' } }); } catch { return Response.json({ status: 'unavailable' }, { status: 503, headers: { 'Cache-Control': 'no-store' } }); } }

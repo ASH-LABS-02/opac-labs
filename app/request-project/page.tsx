@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useFirebaseAuth } from '@/contexts/FirebaseAuthContext';
-import { appCheckHeaders } from '@/lib/firebase';
+import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
+import { clearProjectBriefDraft, readProjectBriefDraft, saveProjectBriefDraft, type ProjectBriefFields } from '@/lib/projectRequestDraft';
 
 const steps = [
     { n: '01', title: 'Submit Your Idea', desc: 'Fill out the form with your project details, budget, and timeline.' },
@@ -44,17 +45,14 @@ const features = [
     },
 ];
 
-type FormFields = {
-    name: string; email: string; phone: string;
-    projectType: string; description: string; budget: string; timeline: string; website: string;
-};
-
 export default function RequestProject() {
     const router = useRouter();
-    const { user } = useFirebaseAuth();
-    const [formData, setFormData] = useState<FormFields>({
+    const { user, loading: authLoading } = useAuth();
+    const [formData, setFormData] = useState<ProjectBriefFields>({
         name: '', email: '', phone: '', projectType: '', description: '', budget: '', timeline: '', website: '',
     });
+    const [draftReady, setDraftReady] = useState(false);
+    const [draftRestored, setDraftRestored] = useState(false);
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -63,42 +61,72 @@ export default function RequestProject() {
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        const idea = params.get('idea');
+        const saved = readProjectBriefDraft();
+        let idea = params.get('idea');
+        let plannerIdea: string | null = null;
+        try {
+            plannerIdea = sessionStorage.getItem('opac-project-draft');
+            sessionStorage.removeItem('opac-project-draft');
+            idea = idea || plannerIdea;
+        } catch { /* Query-prefilled public examples still work without storage. */ }
         const projectType = params.get('projectType');
-        if (idea || projectType === 'software') setFormData(previous => ({
-            ...previous,
-            description: previous.description || idea?.slice(0, 3000) || '',
-            projectType: previous.projectType || (projectType === 'software' ? 'software' : ''),
-        }));
+        const allowedTypes = ['software', 'erp', 'crm', 'hardware', 'hybrid', 'iot', 'robotics', 'automation', 'embedded', 'custom'];
+        const newIdea = !!plannerIdea || saved?.source !== window.location.search;
+        setFormData(previous => {
+            const restored = { ...previous, ...saved?.fields };
+            return {
+                ...restored,
+                description: idea && newIdea ? idea.slice(0, 3000) : restored.description || idea?.slice(0, 3000) || '',
+                projectType: allowedTypes.includes(projectType || '') && newIdea ? projectType! : restored.projectType,
+            };
+        });
+        setDraftRestored(!!saved);
+        setDraftReady(true);
     }, []);
 
     useEffect(() => {
-        if (user) setFormData(previous => ({
+        if (draftReady && user) setFormData(previous => ({
             ...previous,
             name: previous.name || user.displayName || '',
             email: previous.email || user.email || '',
         }));
-    }, [user]);
+    }, [user, draftReady]);
+
+    useEffect(() => {
+        if (draftReady && !isSubmitted) saveProjectBriefDraft(formData);
+    }, [formData, draftReady, isSubmitted]);
 
     function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
         setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     }
 
+    function continueToSignIn() {
+        if (!saveProjectBriefDraft(formData)) {
+            setError('Your browser is blocking draft storage. Allow storage for this site before signing in so your brief can be kept.');
+            return;
+        }
+        router.push('/login?next=/request-project');
+    }
+
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
+        if (isSubmitting || authLoading || !draftReady) return;
+        if (!user) { continueToSignIn(); return; }
         setIsSubmitting(true);
         setError('');
         try {
             const res = await fetch('/api/request-project', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...(await appCheckHeaders()), ...(user ? { Authorization: `Bearer ${await user.getIdToken()}` } : {}) },
+                method: 'POST', signal: AbortSignal.timeout(30_000),
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData),
             });
             const data = await res.json();
+            if (res.status === 401 && data.code === 'SIGN_IN_REQUIRED') { continueToSignIn(); return; }
             if (!res.ok) throw new Error(data.error || 'Failed to submit');
             setWhatsappUrl(data.whatsappUrl || '');
             setReference(data.requestId || '');
             setIsSubmitted(true);
+            clearProjectBriefDraft();
         } catch (err) {
             console.error(err);
             setError(err instanceof Error ? err.message : 'Failed to submit request. Please try again.');
@@ -109,7 +137,7 @@ export default function RequestProject() {
 
     if (isSubmitted) {
         return (
-            <main className="manga-theme-page">
+            <main id="main-content" tabIndex={-1} className="manga-theme-page">
                 <style dangerouslySetInnerHTML={{
                     __html: `
                     .manga-theme-page {
@@ -162,8 +190,9 @@ export default function RequestProject() {
                     <p style={{ fontFamily: "var(--font-kalam), 'Kalam'", fontSize: '1.2rem', lineHeight: 1.4, marginBottom: '24px' }}>Your project brief is saved with our team. We will review the scope and contact you soon.</p>
                     {reference && <p style={{ fontFamily: 'var(--font-space-mono), monospace', fontSize: '0.9rem' }}>Reference: {reference.slice(0, 8).toUpperCase()}</p>}
                     <div className="success-actions">
+                        <Link href="/my-projects" className="manga-btn">Track my request ↗</Link>
                         {whatsappUrl && <p><a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="manga-btn">Continue on WhatsApp ↗</a></p>}
-                        <button onClick={() => router.push('/projects')} className="manga-btn">Explore our work ↗</button>
+                        <button onClick={() => router.push('/our-works')} className="manga-btn">Explore our work ↗</button>
                     </div>
                 </div>
             </main>
@@ -171,7 +200,7 @@ export default function RequestProject() {
     }
 
     return (
-        <main className="manga-theme-page request-page">
+        <main id="main-content" tabIndex={-1} className="manga-theme-page request-page">
             <style dangerouslySetInnerHTML={{
                 __html: `
                 .manga-theme-page {
@@ -497,7 +526,7 @@ export default function RequestProject() {
                             Tell us what you want to make. We will review your brief and get back to you.
                         </p>
 
-                        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <form method="post" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                 <div aria-hidden="true" style={{ position: 'absolute', left: '-10000px' }}>
                                     <label htmlFor="request-website">Website</label>
                                     <input id="request-website" name="website" tabIndex={-1} autoComplete="off" value={formData.website} onChange={handleChange} />
@@ -506,24 +535,26 @@ export default function RequestProject() {
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                                     <div className="manga-form-group">
                                         <label htmlFor="request-name">Your Name</label>
-                                        <input id="request-name" type="text" name="name" value={formData.name} onChange={handleChange} placeholder="John Doe" required />
+                                        <input id="request-name" type="text" name="name" autoComplete="name" minLength={2} maxLength={120} value={formData.name} onChange={handleChange} placeholder="John Doe" required />
                                     </div>
                                     <div className="manga-form-group">
                                         <label htmlFor="request-email">Email</label>
-                                        <input id="request-email" type="email" name="email" value={formData.email} onChange={handleChange} placeholder="you@email.com" required />
+                                        <input id="request-email" type="email" name="email" autoComplete="email" maxLength={254} value={formData.email} onChange={handleChange} placeholder="you@email.com" required />
                                     </div>
                                 </div>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                                     <div className="manga-form-group">
                                         <label htmlFor="request-phone">Phone Number</label>
-                                        <input id="request-phone" type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+91 98765 43210" required />
+                                        <input id="request-phone" type="tel" name="phone" autoComplete="tel" minLength={7} maxLength={30} value={formData.phone} onChange={handleChange} placeholder="+91 98765 43210" required />
                                     </div>
                                     <div className="manga-form-group">
                                         <label htmlFor="request-type">Project Type</label>
                                         <select id="request-type" name="projectType" value={formData.projectType} onChange={handleChange} required>
                                             <option value="">Select type</option>
                                             <option value="software">Software project</option>
+                                            <option value="erp">ERP system</option>
+                                            <option value="crm">CRM system</option>
                                             <option value="hardware">Hardware project</option>
                                             <option value="hybrid">Software + hardware</option>
                                             <option value="iot">IoT &amp; Smart Devices</option>
@@ -537,7 +568,7 @@ export default function RequestProject() {
 
                                 <div className="manga-form-group">
                                     <label htmlFor="request-description">Project Description</label>
-                                    <textarea id="request-description" name="description" value={formData.description} onChange={handleChange} rows={4} placeholder="Describe what you want to build..." required style={{ resize: 'vertical' }} />
+                                    <textarea id="request-description" name="description" minLength={15} maxLength={3000} value={formData.description} onChange={handleChange} rows={4} placeholder="Describe what you want to build..." required style={{ resize: 'vertical' }} />
                                 </div>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
@@ -565,16 +596,20 @@ export default function RequestProject() {
                                 </div>
 
                                 <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <p role="status" className="comic-dialogue" style={{ fontSize: '0.95rem', margin: '0 0 8px' }}>
+                                        {authLoading ? 'Checking your sign-in…' : !user ? 'Sign in before sending. Your filled-in brief will be kept while you sign in.' : draftRestored ? 'Your brief is restored. Review the details, then send it to our team.' : 'Your request will be linked to your account so you can track it in My projects.'}
+                                    </p>
                                     <button
                                         type="submit"
-                                        disabled={isSubmitting}
+                                        formNoValidate={!user}
+                                        disabled={isSubmitting || authLoading || !draftReady}
                                         className="manga-btn"
                                         style={{ background: isSubmitting ? '#aaa' : '#111', cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
                                     >
-                                        {isSubmitting ? 'Submitting...' : 'Send Project Brief 🚀'}
+                                        {isSubmitting ? 'Submitting...' : authLoading ? 'Checking sign-in…' : user ? 'Send Project Brief 🚀' : 'Sign in to send brief ↗'}
                                     </button>
                                     <p className="comic-dialogue" style={{ fontSize: '0.9rem', color: '#888', textAlign: 'center', margin: 0 }}>
-                                        Your brief is saved for our team. You can choose to continue on WhatsApp afterward.
+                                        After you send, our team receives your brief. WhatsApp follow-up is optional.
                                     </p>
                                 </div>
                             </form>

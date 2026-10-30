@@ -5,33 +5,43 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:netlify": "node scripts/production-preflight.mjs --platform=netlify && next build",
     "start": "next start",
+    "preview:local": "node scripts/local-preview.mjs",
     "lint": "eslint",
-    "verify:production": "node scripts/verify-production-config.mjs"
+    "verify:production": "node scripts/production-preflight.mjs",
+    "test:security": "tsx --test scripts/security.test.ts",
+    "test:hosting": "node --test scripts/production-preflight.test.mjs",
+    "test:integration": "node scripts/integration-test.mjs",
+    "admin": "node scripts/manage-admin.mjs"
   },
   "dependencies": {
-    "firebase": "^12.10.0",
-    "firebase-admin": "^14.5.0",
+    "better-auth": "^1.7.14",
+    "mongodb": "^7.7.0",
     "next": "^15.5.28",
+    "nodemailer": "^10.3.1",
     "openai": "^6.29.0",
     "react": "19.0.0",
-    "react-dom": "19.0.0",
-    "redis": "^6.3.0"
+    "react-dom": "19.0.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/animejs": "^3.1.13",
-    "@types/node": "^20",
+    "@types/node": "^22.20.5",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/smtp-server": "^3.5.13",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
     "eslint-config-next": "15.3.0",
+    "mongodb-memory-server": "^11.3.0",
+    "smtp-server": "^3.21.3",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   },
   "overrides": {
-    "@grpc/grpc-js": "^1.14.6",
     "postcss": "^8.5.32"
   }
 }

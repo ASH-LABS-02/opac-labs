@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Auth3DBackground from '@/components/Auth3DBackground';
-import { useFirebaseAuth } from '@/contexts/FirebaseAuthContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { authPageHref } from '@/lib/authRedirect';
+import { authClient } from '@/lib/auth-client';
 
 export default function Register() {
-    const { signInWithGoogle, signUpWithEmail } = useFirebaseAuth();
+    const { signUpWithEmail, loading: authLoading } = useAuth();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -14,9 +16,25 @@ export default function Register() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [loginHref, setLoginHref] = useState('/login');
+    const [resent, setResent] = useState(false);
+
+    useEffect(() => { setLoginHref(authPageHref('/login')); }, []);
+
+    async function resendVerification() {
+        if (isLoading) return;
+        setIsLoading(true); setError('');
+        try {
+            const result = await authClient.sendVerificationEmail({ email, callbackURL: `${window.location.origin}${loginHref}` });
+            if (result.error) throw new Error('Could not resend the email. Please try again later.');
+            setResent(true);
+        } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not resend verification.'); }
+        finally { setIsLoading(false); }
+    }
 
     const handleEmailSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+        if (isLoading) return;
         setError('');
         
         if (!name.trim()) {
@@ -29,15 +47,15 @@ export default function Register() {
             return;
         }
 
-        if (password.length < 6) {
-            setError('Password must be at least 6 characters');
+        if (password.length < 12) {
+            setError('Password must be at least 12 characters');
             return;
         }
 
         setIsLoading(true);
 
         try {
-            await signUpWithEmail(email, password, name);
+            await signUpWithEmail(email.trim(), password, name.trim());
             setSuccess(true);
         } catch (error: unknown) {
             const err = error as { code?: string };
@@ -53,25 +71,17 @@ export default function Register() {
         }
     };
 
-    const handleGoogleSignUp = async () => {
-        setError('');
-        try {
-            await signInWithGoogle();
-        } catch {
-            setError('Could not sign up with Google. Please try again.');
-        }
-    };
 
     if (success) {
         return (
-            <main className="auth-page">
+            <main id="main-content" tabIndex={-1} className="auth-page">
                 <Auth3DBackground />
                 <div className="auth-container">
-                    <div className="auth-logo">OPAC LABS</div>
+                    <Link href="/" className="auth-logo auth-logo-link" aria-label="OPAC Labs home">OPAC LABS</Link>
                     <div className="auth-card">
                         <div className="auth-header">
-                            <h1>{process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true' ? 'Account Created' : 'Verify Your Email'}</h1>
-                            <p>{process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true' ? 'Your local account is ready' : 'We\'ve sent a verification link to your email'}</p>
+                            <h1>{'Verify Your Email'}</h1>
+                            <p>{'Check your email for a verification link'}</p>
                         </div>
 
                         <div style={{ 
@@ -83,20 +93,23 @@ export default function Register() {
                             lineHeight: '1.6'
                         }}>
                             <p style={{ marginBottom: '12px' }}>
-                                <strong>{process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true' ? 'Your account:' : 'Check your inbox at:'}</strong><br />
+                                <strong>{'Check your inbox at:'}</strong><br />
                                 {email}
                             </p>
                             <p style={{ marginBottom: '12px' }}>
-                                {process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true' ? 'Sign in to continue.' : 'Click the verification link in the email to activate your account.'}
+                                {'Click the verification link in the email to activate your account.'}
                             </p>
                             <p style={{ color: '#666', fontSize: '13px' }}>
-                                {process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true' ? 'This account lives in the local Firebase emulator.' : 'Didn\'t receive the email? Check your spam folder.'}
+                                {'Didn\'t receive the email? Check your spam folder.'}
                             </p>
                         </div>
 
-                        <Link href="/login" className="btn-primary" style={{ textDecoration: 'none', display: 'block', textAlign: 'center' }}>
+                        <Link href={loginHref} className="btn-primary" style={{ textDecoration: 'none', display: 'block', textAlign: 'center' }}>
                             Go to Sign In
                         </Link>
+                    <button type="button" className="auth-reset" disabled={isLoading} onClick={resendVerification}>{isLoading ? 'Requesting…' : 'Resend verification email'}</button>
+                        {resent && <p role="status">If your account needs verification, another link will arrive shortly. Check spam too.</p>}
+                        {error && <p role="alert">{error}</p>}
                     </div>
                 </div>
             </main>
@@ -104,10 +117,10 @@ export default function Register() {
     }
 
     return (
-        <main className="auth-page">
+        <main id="main-content" tabIndex={-1} className="auth-page">
             <Auth3DBackground />
             <div className="auth-container">
-                <div className="auth-logo">OPAC LABS</div>
+                <Link href="/" className="auth-logo auth-logo-link" aria-label="OPAC Labs home">OPAC LABS</Link>
                 <div className="auth-card">
                     <div className="auth-header">
                         <h1>Create Account</h1>
@@ -127,12 +140,13 @@ export default function Register() {
                         </div>
                     )}
 
-                    <form onSubmit={handleEmailSignUp} className="auth-form">
+                    <form method="post" onSubmit={handleEmailSignUp} className="auth-form">
                         <div className="form-group">
                             <label htmlFor="name">Full Name</label>
                             <input
                                 type="text"
                                 id="name"
+                                autoComplete="name" maxLength={120}
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 placeholder="John Doe"
@@ -145,6 +159,7 @@ export default function Register() {
                             <input
                                 type="email"
                                 id="email"
+                                autoComplete="email" maxLength={254}
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 placeholder="you@example.com"
@@ -157,9 +172,10 @@ export default function Register() {
                             <input
                                 type="password"
                                 id="password"
+                                autoComplete="new-password" minLength={12} maxLength={128}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                placeholder="At least 6 characters"
+                                placeholder="At least 12 characters"
                                 required
                             />
                         </div>
@@ -169,6 +185,7 @@ export default function Register() {
                             <input
                                 type="password"
                                 id="confirmPassword"
+                                autoComplete="new-password" minLength={12} maxLength={128}
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
                                 placeholder="Re-enter your password"
@@ -179,28 +196,15 @@ export default function Register() {
                         <button 
                             type="submit" 
                             className="auth-submit-btn"
-                            disabled={isLoading}
+                            disabled={isLoading || authLoading}
                         >
                             {isLoading ? 'Creating account...' : 'Sign Up'}
                         </button>
                     </form>
 
-                    <div className="auth-divider">
-                        <span>or continue with</span>
-                    </div>
-
-                    <button onClick={handleGoogleSignUp} className="social-btn google-btn">
-                        <svg width="18" height="18" viewBox="0 0 24 24">
-                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                        </svg>
-                        Sign up with Google
-                    </button>
 
                     <div className="auth-footer">
-                        <p>Already have an account? <Link href="/login">Sign in</Link></p>
+                        <p>Already have an account? <Link href={loginHref}>Sign in</Link></p>
                     </div>
                 </div>
             </div>

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import { appCheckHeaders } from '@/lib/firebase';
 
 export default function Contact() {
     const [formData, setFormData] = useState({ name: '', email: '', message: '', website: '' });
@@ -16,7 +15,7 @@ export default function Contact() {
         setFormError('');
         try {
             const res = await fetch('/api/contact', {
-                method: 'POST', headers: { 'Content-Type': 'application/json', ...(await appCheckHeaders()) },
+                method: 'POST', signal: AbortSignal.timeout(30_000), headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData),
             });
             const data = await res.json();
@@ -35,7 +34,7 @@ export default function Contact() {
     };
 
     return (
-        <main className="manga-theme-page contact-page">
+        <main id="main-content" tabIndex={-1} className="manga-theme-page contact-page">
             <style dangerouslySetInnerHTML={{ __html: `
                 .manga-theme-page {
                     font-family: var(--font-space-mono), 'Space Mono', monospace;
@@ -426,25 +425,25 @@ export default function Contact() {
                                     </div>
                                 </div>
                             ) : (
-                                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                                <form method="post" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
                                     <div aria-hidden="true" style={{ position: 'absolute', left: '-10000px' }}>
                                         <label htmlFor="contact-website">Website</label>
                                         <input id="contact-website" name="website" tabIndex={-1} autoComplete="off" value={formData.website} onChange={handleChange} />
                                     </div>
                                     <div className="contact-fields-row">
                                         <div>
-                                            <label className="manga-label">Your Name</label>
+                                            <label htmlFor="contact-name" className="manga-label">Your Name</label>
                                             <input
-                                                type="text" name="name"
+                                                id="contact-name" type="text" name="name" minLength={2} maxLength={120} autoComplete="name"
                                                 value={formData.name} onChange={handleChange}
                                                 required placeholder="Enter your name"
                                                 className="manga-input"
                                             />
                                         </div>
                                         <div>
-                                            <label className="manga-label">Email</label>
+                                            <label htmlFor="contact-email" className="manga-label">Email</label>
                                             <input
-                                                type="email" name="email"
+                                                id="contact-email" type="email" name="email" maxLength={254} autoComplete="email"
                                                 value={formData.email} onChange={handleChange}
                                                 required placeholder="your@email.com"
                                                 className="manga-input"
@@ -452,13 +451,14 @@ export default function Contact() {
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="manga-label">Message</label>
+                                        <label htmlFor="contact-message" className="manga-label">Message</label>
                                         <textarea
-                                            name="message" rows={5}
+                                            id="contact-message" name="message" rows={5} minLength={10} maxLength={5000} aria-describedby="contact-message-help"
                                             value={formData.message} onChange={handleChange}
                                             required placeholder="How can we help you?"
                                             className="manga-textarea"
                                         />
+                                        <p id="contact-message-help">Please write at least 10 characters so we can understand your request.</p>
                                     </div>
                                     {formError && <p role="alert" style={{ color: '#a11d3a', margin: 0 }}>{formError}</p>}
                                     <button type="submit" className="send-form-btn" disabled={sending}>
@@ -497,8 +497,8 @@ export default function Contact() {
                                 </div>
                                 <div>
                                     <div style={{ fontSize: '10px', fontWeight: '900', color: '#111', textTransform: 'uppercase', letterSpacing: '1.5px', fontFamily: 'var(--font-archivo-black), sans-serif', marginBottom: '4px' }}>Email</div>
-                                    <a href="mailto:opac.labs@gmail.com" style={{ fontSize: '13px', color: 'var(--opac-accent)', fontWeight: '700', textDecoration: 'none', fontFamily: 'var(--font-space-mono), monospace' }}>
-                                        opac.labs@gmail.com
+                                    <a href="mailto:opaclabs.in@gmail.com" style={{ fontSize: '13px', color: 'var(--opac-accent)', fontWeight: '700', textDecoration: 'none', fontFamily: 'var(--font-space-mono), monospace' }}>
+                                        opaclabs.in@gmail.com
                                     </a>
                                 </div>
                             </div>

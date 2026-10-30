@@ -1,30 +1,42 @@
 'use client';
 
-import { useFirebaseAuth } from '@/contexts/FirebaseAuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { updateProfile } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
 
 export default function Profile() {
-    const { user, loading, signOut } = useFirebaseAuth();
+    const { user, loading, signOut, refresh } = useAuth();
     const router = useRouter();
 
     const [isEditing, setIsEditing] = useState(false);
     const [displayName, setDisplayName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
+    const [savedPhone, setSavedPhone] = useState('');
+    const [profileLoading, setProfileLoading] = useState(true);
+    const [profileLoadFailed, setProfileLoadFailed] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState('');
     const [saveError, setSaveError] = useState('');
 
     useEffect(() => {
+        let active = true;
         if (!loading && !user) {
-            router.push('/login');
+            router.replace('/login?next=/profile');
         } else if (user) {
             setDisplayName(user.displayName || '');
+            setProfileLoading(true);
+            setProfileLoadFailed(false);
+            fetch('/api/profile').then(async response => { if (!response.ok) throw new Error('Profile unavailable'); return response.json(); }).then(snapshot => {
+                if (!active) return;
+                const phone = typeof snapshot.phone === 'string' ? snapshot.phone : '';
+                setPhoneNumber(phone);
+                setSavedPhone(phone);
+            }).catch(() => {
+                if (active) { setProfileLoadFailed(true); setSaveError('Could not load your saved profile. Reload this page before editing.'); }
+            }).finally(() => { if (active) setProfileLoading(false); });
         }
+        return () => { active = false; };
     }, [user, loading, router]);
 
     const getInitial = (name: string) => {
@@ -36,7 +48,7 @@ export default function Profile() {
 
     const handleSaveProfile = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!auth.currentUser) return;
+        if (!user || isSaving || profileLoading || profileLoadFailed) return;
         if (!displayName.trim() || displayName.length > 120 || phoneNumber.length > 30) {
             setSaveError('Enter a name and keep the phone number under 30 characters.');
             return;
@@ -46,18 +58,12 @@ export default function Profile() {
         setSaveError('');
 
         try {
-            await updateProfile(auth.currentUser, {
-                displayName: displayName.trim()
-            });
-
-            await setDoc(doc(db, 'users', auth.currentUser.uid), {
-                name: displayName.trim(),
-                email: auth.currentUser.email,
-                phone: phoneNumber.trim(),
-                updatedAt: new Date().toISOString()
-            }, { merge: true });
+            const response = await fetch('/api/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: displayName.trim(), phone: phoneNumber.trim() }) });
+            if (!response.ok) throw new Error('Could not save your profile.');
+            refresh();
 
             setSaveSuccess('Profile updated successfully!');
+            setSavedPhone(phoneNumber.trim());
             setIsEditing(false);
             setTimeout(() => setSaveSuccess(''), 4000);
         } catch (err: unknown) {
@@ -80,7 +86,7 @@ export default function Profile() {
 
     if (loading || !user) {
         return (
-            <main className="manga-profile-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '70vh' }}>
+            <main id="main-content" tabIndex={-1} className="manga-profile-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '70vh' }}>
                 <div className="manga-panel" style={{ background: '#ffe87a', textAlign: 'center', padding: '24px 36px' }}>
                     <h2 style={{ fontFamily: 'var(--font-archivo-black), sans-serif', fontSize: '20px', margin: 0 }}>
                         LOADING PROFILE...
@@ -91,7 +97,7 @@ export default function Profile() {
     }
 
     return (
-        <main className="manga-profile-page" style={{ padding: '60px 20px 100px' }}>
+        <main id="main-content" tabIndex={-1} className="manga-profile-page" style={{ padding: '60px 20px 100px' }}>
             <div style={{ maxWidth: '640px', margin: '0 auto' }}>
 
                 {/* Page Title */}
@@ -181,7 +187,8 @@ export default function Profile() {
 
                         <button
                             className="manga-btn-secondary"
-                            onClick={() => setIsEditing(!isEditing)}
+                        disabled={profileLoading || isSaving || profileLoadFailed}
+                        onClick={() => { setDisplayName(user.displayName || ''); setPhoneNumber(savedPhone); setIsEditing(!isEditing); }}
                             style={{ padding: '8px 16px', fontSize: '0.85rem' }}
                         >
                             {isEditing ? 'CANCEL' : 'EDIT'}
@@ -190,13 +197,14 @@ export default function Profile() {
 
                     {/* Edit Form */}
                     {isEditing ? (
-                        <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+                        <form method="post" onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
                             <div>
-                                <label style={{ display: 'block', fontFamily: 'var(--font-archivo-black), sans-serif', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '6px' }}>
+                                <label htmlFor="profile-name" style={{ display: 'block', fontFamily: 'var(--font-archivo-black), sans-serif', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '6px' }}>
                                     Full Name
                                 </label>
                                 <input
                                     type="text"
+                                    id="profile-name" autoComplete="name"
                                     className="manga-input"
                                     value={displayName}
                                     onChange={(e) => setDisplayName(e.target.value)}
@@ -207,11 +215,12 @@ export default function Profile() {
                             </div>
 
                             <div>
-                                <label style={{ display: 'block', fontFamily: 'var(--font-archivo-black), sans-serif', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '6px' }}>
+                                <label htmlFor="profile-phone" style={{ display: 'block', fontFamily: 'var(--font-archivo-black), sans-serif', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '6px' }}>
                                     Phone Number
                                 </label>
                                 <input
                                     type="tel"
+                                    id="profile-phone" autoComplete="tel"
                                     className="manga-input"
                                     value={phoneNumber}
                                     onChange={(e) => setPhoneNumber(e.target.value)}

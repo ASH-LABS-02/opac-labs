@@ -1,0 +1,15 @@
+[build]
+  base = "admin-app"
+  publish = "public"
+  command = ""
+
+[[redirects]]
+  from = "/*"
+  to = "https://opaclab-web.netlify.app/admin"
+  status = 302
+  force = true
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"

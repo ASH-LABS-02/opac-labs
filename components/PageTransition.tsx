@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-/** CSS-only entrance; the route is rendered immediately and revealed in 340 ms. */
+/** A short CSS entrance without delaying content or data fetching. */
 export default function PageTransition({ children }: { children: ReactNode }) {
     return <div className="page-enter">{children}</div>;
 }

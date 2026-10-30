@@ -1,0 +1,21 @@
+[build]
+  command = "npm run build:netlify"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NEXT_TELEMETRY_DISABLED = "1"
+
+# Netlify automatically supplies its Next.js adapter. Do not export this app as
+# static HTML: API routes handle authentication, requests, chat, and history.
+# MongoDB, auth and email credentials must be set in Netlify's environment UI/API
+# for BOTH Builds and Functions; values in this file do not reach functions.
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Content-Security-Policy = "base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"

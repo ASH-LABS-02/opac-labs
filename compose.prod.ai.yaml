@@ -1,11 +1,5 @@
 services:
   web:
     environment:
-      OPENAI_API_KEY_FILE: /run/secrets/openai_api_key
-    secrets:
-      - firebase_service_account
-      - openai_api_key
-
-secrets:
-  openai_api_key:
-    file: ${OPENAI_API_KEY_PATH:?Set OPENAI_API_KEY_PATH}
+      OPAC_PAID_AI_ENABLED: "true"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?Set the optional paid AI key}

@@ -1,24 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createHash } from 'node:crypto';
 import { isIP } from 'node:net';
-import { createClient } from 'redis';
-import { getAppCheck } from 'firebase-admin/app-check';
-import { getAdminApp } from '@/lib/firebaseAdmin';
+import { records } from '@/lib/database';
 
 export class RequestError extends Error {
     constructor(public status: number, message: string) {
         super(message);
-    }
-}
-
-export async function requireAppCheck(request: Request) {
-    if (process.env.FIREBASE_APPCHECK_REQUIRED !== 'true') return;
-    const token = request.headers.get('x-firebase-appcheck');
-    if (!token) throw new RequestError(401, 'App verification required. Please reload and try again.');
-    try {
-        await getAppCheck(getAdminApp()).verifyToken(token);
-    } catch {
-        throw new RequestError(401, 'App verification failed. Please reload and try again.');
     }
 }
 
@@ -37,74 +24,44 @@ export function validPhone(value: unknown): value is string {
         value.replace(/\D/g, '').length >= 7;
 }
 
-const counters = new Map<string, { count: number; resetAt: number }>();
-function connectRedis() {
-    const client = createClient({
-        url: process.env.REDIS_URL,
-        socket: { connectTimeout: 1500, reconnectStrategy: retries => retries > 1 ? false : 100 },
-    });
-    client.on('error', error => console.error('Redis rate limiter connection:', error));
-    return client.connect().then(() => client);
-}
-let redisConnection: ReturnType<typeof connectRedis> | undefined;
-
-function redisClient() {
-    if (!redisConnection) redisConnection = connectRedis().catch(error => {
-        redisConnection = undefined;
-        throw error;
-    });
-    return redisConnection;
-}
-
 export async function rateLimiterReady() {
-    if (!process.env.REDIS_URL) return process.env.NODE_ENV !== 'production' || !!process.env.FIREBASE_AUTH_EMULATOR_HOST;
-    try { return (await (await redisClient()).ping()) === 'PONG'; }
-    catch { return false; }
+    try { await (await records('rateLimits')).findOne({ _id: '_health' }, { projection: { _id: 1 } }); return true; } catch { return false; }
 }
 
 export function clientAddress(request: Request) {
     if (process.env.TRUST_PROXY_HEADERS !== 'true') return 'local';
+    if (process.env.TRUSTED_PROXY_PROVIDER === 'netlify') {
+        const address = request.headers.get('x-nf-client-connection-ip')?.trim() || '';
+        return isIP(address) ? address : 'unknown';
+    }
     const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '';
     return isIP(forwarded) ? forwarded : 'unknown';
 }
 
-// Redis makes limits shared across web replicas. Local emulators retain an in-memory fallback.
+// Each atomic update reserves a slot across every worker. Denied counters are
+// capped at max + 1, and expiry resets the window without waiting for TTL cleanup.
 export async function enforceRateLimit(scope: string, key: string, max: number, windowMs: number) {
-    if (process.env.REDIS_URL) {
-        const digest = createHash('sha256').update(key).digest('hex');
-        const id = `opac:rate:${scope}:${digest}:${Math.floor(Date.now() / windowMs)}`;
-        try {
-            const client = await redisClient();
-            const count = await client.eval(
-                "local n=redis.call('INCR',KEYS[1]); if n==1 then redis.call('PEXPIRE',KEYS[1],ARGV[1]) end; return n",
-                { keys: [id], arguments: [String(windowMs * 2)] },
-            );
-            if (Number(count) > max) throw new RequestError(429, 'Too many requests. Please try again later.');
-            return;
-        } catch (error) {
-            if (error instanceof RequestError) throw error;
-            console.error('Shared rate limiter unavailable:', error);
-            throw new RequestError(503, 'Service temporarily unavailable. Please try again later.');
-        }
-    }
-    if (process.env.NODE_ENV === 'production' && !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
+    const digest = createHash('sha256').update(`${scope}:${key}`).digest('hex');
+    const now = new Date();
+    const end = new Date(now.getTime() + windowMs);
+    try {
+        const result = await (await records('rateLimits')).findOneAndUpdate({ _id: digest }, [{ $set: {
+            count: { $min: [max + 1, { $cond: [{ $gt: ['$resetAt', now] }, { $add: ['$count', 1] }, 1] }] },
+            resetAt: { $cond: [{ $gt: ['$resetAt', now] }, '$resetAt', end] },
+            expiresAt: new Date(end.getTime() + 86400000),
+        } }], { upsert: true, returnDocument: 'after' });
+        if (!result || !Number.isSafeInteger(result.count) || result.count < 1) throw new Error('Invalid quota counter.');
+        if (result.count > max) throw new RequestError(429, 'Too many requests. Please try again later.');
+    } catch (error) {
+        if (error instanceof RequestError) throw error;
         throw new RequestError(503, 'Service temporarily unavailable. Please try again later.');
-    }
-    const now = Date.now();
-    const id = `${scope}:${key}`;
-    const previous = counters.get(id);
-    if (previous && previous.resetAt > now && previous.count >= max) {
-        throw new RequestError(429, 'Too many requests. Please try again later.');
-    }
-    counters.set(id, previous && previous.resetAt > now
-        ? { count: previous.count + 1, resetAt: previous.resetAt }
-        : { count: 1, resetAt: now + windowMs });
-    if (counters.size > 1000) {
-        for (const [entry, value] of counters) if (value.resetAt <= now) counters.delete(entry);
     }
 }
 
 export async function readJsonRequest<T>(request: Request, maxBytes: number): Promise<T> {
+    if (request.headers.get('sec-fetch-site') === 'cross-site') {
+        throw new RequestError(403, 'Cross-origin requests are not allowed.');
+    }
     if (request.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase() !== 'application/json') {
         throw new RequestError(415, 'Send JSON with Content-Type: application/json.');
     }
@@ -112,7 +69,8 @@ export async function readJsonRequest<T>(request: Request, maxBytes: number): Pr
     if (origin) {
         const requestUrl = new URL(request.url);
         const host = request.headers.get('host');
-        const forwardedProto = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim();
+        const forwardedProto = process.env.TRUST_PROXY_HEADERS === 'true'
+            ? request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() : undefined;
         const protocol = forwardedProto === 'http' || forwardedProto === 'https'
             ? forwardedProto : requestUrl.protocol.slice(0, -1);
         let sameOrigin = false;
@@ -130,24 +88,33 @@ export async function readJsonRequest<T>(request: Request, maxBytes: number): Pr
 
     const reader = request.body.getReader();
     const decoder = new TextDecoder('utf-8', { fatal: true });
+    let deadline: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<never>((_, reject) => {
+        deadline = setTimeout(() => reject(new RequestError(408, 'Request timed out. Please try again.')), 10_000);
+    });
     let bytes = 0;
     let text = '';
     try {
         while (true) {
-            const { done, value } = await reader.read();
+            const { done, value } = await Promise.race([reader.read(), timeout]);
             if (done) break;
             bytes += value.byteLength;
             if (bytes > maxBytes) {
-                await reader.cancel();
+                void reader.cancel().catch(() => {});
                 throw new RequestError(413, 'Request is too large.');
             }
             text += decoder.decode(value, { stream: true });
         }
         text += decoder.decode();
-        return JSON.parse(text) as T;
+        const value = JSON.parse(text);
+        if (!value || typeof value !== 'object' || Array.isArray(value)) throw new RequestError(400, 'A JSON object is required.');
+        return value as T;
     } catch (error) {
         if (error instanceof RequestError) throw error;
         throw new RequestError(400, 'Invalid JSON request.');
+    } finally {
+        clearTimeout(deadline!);
+        void reader.cancel().catch(() => {});
     }
 }
 

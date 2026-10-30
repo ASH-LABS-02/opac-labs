@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { FieldValue } from 'firebase-admin/firestore';
-import { getAdminDb, getAdminUser } from '@/lib/firebaseAdmin';
-import { RequestError, clientAddress, enforceRateLimit, readJsonRequest, requestErrorResponse, requireAppCheck, validEmail, validName } from '@/lib/serverSecurity';
+import { randomUUID } from 'node:crypto';
+import { records, publicRecord } from '@/lib/database';
+import { getAdminUser } from '@/lib/auth';
+import { RequestError, clientAddress, enforceRateLimit, readJsonRequest, requestErrorResponse, validEmail, validName } from '@/lib/serverSecurity';
 import { expiresAt } from '@/lib/retention';
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +11,6 @@ export async function POST(req: NextRequest) {
     try {
         await enforceRateLimit('contact-global', 'all', 1000, 60_000);
         await enforceRateLimit('contact-ip', clientAddress(req), 10, 60_000);
-        await requireAppCheck(req);
         const body = await readJsonRequest<Record<string, unknown>>(req, 16 * 1024);
         if (!body || typeof body !== 'object' || Array.isArray(body)) {
             return NextResponse.json({ error: 'Enter a valid name, email, and message.' }, { status: 400 });
@@ -22,9 +22,10 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Enter your name, a valid email, and a message of at least 10 characters.' }, { status: 400 });
         }
         await enforceRateLimit('contact-email', email.toLowerCase(), 5, 15 * 60_000);
-        const ref = await getAdminDb().collection('contactMessages').add({
+        const ref = { id: randomUUID() };
+        await (await records('contactMessages')).insertOne({ _id: ref.id,
             name: name.trim(), email: email.trim().toLowerCase(), message: message.trim(),
-            status: 'new', createdAt: FieldValue.serverTimestamp(), expiresAt: expiresAt('CONTACT_RETENTION_DAYS', 180),
+            status: 'new', createdAt: new Date(), expiresAt: expiresAt('CONTACT_RETENTION_DAYS', 180),
         });
         return NextResponse.json({ success: true, id: ref.id }, { status: 201 });
     } catch (error) {
@@ -34,11 +35,11 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-    if (!(await getAdminUser(req))) return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     try {
+        if (!(await getAdminUser(req))) return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
         await enforceRateLimit('contact-admin-read', 'all', 60, 60_000);
-        const snap = await getAdminDb().collection('contactMessages').orderBy('createdAt', 'desc').limit(100).get();
-        return NextResponse.json({ messages: snap.docs.map(doc => ({ id: doc.id, ...doc.data(), createdAt: doc.data().createdAt?.toDate().toISOString() ?? null })) });
+        const messages = (await (await records('contactMessages')).find({}).sort({ createdAt: -1 }).limit(100).toArray()).map(publicRecord);
+        return NextResponse.json({ messages });
     } catch (error) {
         if (!(error instanceof RequestError)) console.error('Could not load messages:', error);
         return requestErrorResponse(error, 'Could not load messages');

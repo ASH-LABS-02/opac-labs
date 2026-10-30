@@ -1,285 +1,69 @@
-
-
+import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
+import { ProjectExplorer, BuildJourney, SupportPicker } from '@/components/StudentProjectLab';
+import styles from './student.module.css';
+
+export const metadata: Metadata = {
+    title: 'Student Projects — OPAC Labs',
+    description: 'Explore hardware, software, robotics, and IoT project ideas. Plan a custom build with OPAC Labs, from your first brief to a documented demo.',
+};
+
+function Arrow() {
+    return <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12h16m-6-6 6 6-6 6" /></svg>;
+}
 
 export default function StudentProjectsLandingPage() {
-
-
     return (
-        <main className="manga-theme-page student-page">
-            <style dangerouslySetInnerHTML={{
-                __html: `
-                .manga-theme-page {
-                    font-family: var(--font-space-mono), 'Space Mono', monospace;
-                    background-color: var(--opac-paper);
-                    color: #111;
-                    min-height: 100vh;
-                    overflow-x: hidden;
-                    position: relative;
-                }
-
-                /* Halftone pattern overlay */
-                .manga-theme-page::before {
-                    content: '';
-                    position: fixed;
-                    top: 0; left: 0; width: 100vw; height: 100vh;
-                    pointer-events: none;
-                    opacity: 0.12;
-                    z-index: 100;
-                    background-image: radial-gradient(#111 1px, transparent 1px);
-                    background-size: 6px 6px;
-                }
-
-                /* Rough paper texture using fast CSS grain tile */
-                .manga-theme-page::after {
-                    content: '';
-                    position: fixed;
-                    top: 0; left: 0; width: 100vw; height: 100vh;
-                    pointer-events: none;
-                    opacity: 0.25;
-                    z-index: 99;
-                    background-image: radial-gradient(rgba(0,0,0,0.15) 1px, transparent 0), radial-gradient(rgba(0,0,0,0.08) 1px, transparent 0);
-                    background-size: 4px 4px, 7px 7px;
-                    background-position: 0 0, 2px 2px;
-                }
-
-                .manga-theme-page h1, .manga-theme-page h2, .manga-theme-page h3, .manga-theme-page .manga-title {
-                    font-family: var(--font-archivo-black), 'Archivo Black', sans-serif;
-                    text-transform: uppercase;
-                }
-
-                .comic-dialogue {
-                    font-family: var(--font-kalam), 'Kalam', cursive;
-                    font-size: 1.2rem;
-                    line-height: 1.4;
-                }
-
-                /* Container */
-                .comic-container {
-                    max-width: 1400px;
-                    margin: 0 auto;
-                    padding: 40px 20px;
-                    position: relative;
-                    z-index: 10;
-                }
-
-                /* Grid Layout for Panels */
-                .comic-grid {
-                    display: grid;
-                    grid-template-columns: repeat(12, 1fr);
-                    grid-auto-rows: minmax(150px, auto);
-                    gap: 16px;
-                    background: #111; /* Black gutters */
-                    padding: 16px;
-                    border: 8px solid #111;
-                }
-
-                .panel {
-                    background: var(--opac-paper);
-                    position: relative;
-                    overflow: hidden;
-                    display: flex;
-                    flex-direction: column;
-                    justify-content: center;
-                    border: 4px solid #111;
-                    /* Slightly irregular borders to look hand-drawn */
-                    border-radius: 2px 8px 3px 6px;
-                    transition: transform 0.2s ease;
-                }
-
-                .panel:hover {
-                    transform: scale(1.02);
-                    z-index: 50;
-                    box-shadow: 12px 12px 0px rgba(0,0,0,1);
-                }
-
-                /* Panel Sizes */
-                .panel-hero { grid-column: span 12; min-height: 400px; padding: 40px; background-color: var(--opac-blue); }
-                .panel-half-l { grid-column: span 7; min-height: 300px; padding: 30px; background-color: var(--opac-yellow); }
-                .panel-half-r { grid-column: span 5; min-height: 300px; padding: 30px; background-color: var(--opac-pink); }
-                .panel-third { grid-column: span 4; min-height: 250px; padding: 20px; }
-
-                @media (max-width: 900px) {
-                    .panel-half-l, .panel-half-r { grid-column: span 12; }
-                    .panel-third { grid-column: span 12; }
-                }
-
-                /* Massive Typography */
-                .massive-text {
-                    font-size: clamp(4rem, 10vw, 8rem);
-                    line-height: 0.85;
-                    letter-spacing: -0.05em;
-                    color: var(--opac-paper);
-                    text-shadow:
-                        4px 4px 0 #111,
-                        -2px -2px 0 #111,
-                        2px -2px 0 #111,
-                        -2px  2px 0 #111,
-                        2px  2px 0 #111,
-                        8px 8px 0px var(--opac-accent); /* Pop art offset (Electric blue) */
-                }
-
-                .offset-shadow-text {
-                    color: #111;
-                    text-shadow: -4px 4px 0px #fff, -5px 5px 0px #111;
-                }
-
-                /* Action Burst Graphic */
-                .action-burst {
-                    position: absolute;
-                    top: -50px; right: -50px;
-                    width: 200px; height: 200px;
-                    background: var(--opac-accent);
-                    clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
-                    animation: spinBurst 10s linear infinite;
-                    z-index: 0;
-                }
-
-                @keyframes spinBurst {
-                    100% { transform: rotate(360deg); }
-                }
-
-                /* Speech Bubble */
-                .speech-bubble {
-                    position: relative;
-                    background: #fff;
-                    border: 4px solid #111;
-                    border-radius: 50% / 30%;
-                    padding: 20px 30px;
-                    margin-bottom: 20px;
-                    align-self: flex-start;
-                    box-shadow: 6px 6px 0px #111;
-                    transform: rotate(-2deg);
-                }
-                .speech-bubble::before {
-                    content: '';
-                    position: absolute;
-                    bottom: -20px;
-                    left: 40px;
-                    border-width: 20px 20px 0 0;
-                    border-style: solid;
-                    border-color: #111 transparent transparent transparent;
-                }
-                .speech-bubble::after {
-                    content: '';
-                    position: absolute;
-                    bottom: -13px;
-                    left: 43px;
-                    border-width: 15px 15px 0 0;
-                    border-style: solid;
-                    border-color: #fff transparent transparent transparent;
-                }
-
-                /* Manga Buttons */
-                .manga-btn {
-                    display: inline-block;
-                    padding: 16px 32px;
-                    background: #111;
-                    color: #fff;
-                    font-family: var(--font-archivo-black), sans-serif;
-                    font-size: 1.5rem;
-                    text-transform: uppercase;
-                    text-decoration: none;
-                    border: 4px solid #111;
-                    box-shadow: -8px 8px 0px var(--opac-accent), -8px 8px 0px 4px #111;
-                    transform: rotate(-1deg);
-                    cursor: pointer;
-                    transition: all 0.1s steps(2);
-                }
-
-                .manga-btn:hover {
-                    transform: translate(-4px, 4px) rotate(0deg);
-                    box-shadow: -4px 4px 0px var(--opac-accent), -4px 4px 0px 4px #111;
-                    background: #fff;
-                    color: #111;
-                }
-
-                .manga-btn:active {
-                    transform: translate(-8px, 8px) rotate(1deg);
-                    box-shadow: 0px 0px 0px var(--opac-accent);
-                }
-
-                /* Japanese vertical text */
-                .vert-text {
-                    writing-mode: vertical-rl;
-                    text-orientation: upright;
-                    font-family: sans-serif;
-                    font-weight: 900;
-                    font-size: 3rem;
-                    position: absolute;
-                    left: 10px; top: 10px;
-                    color: rgba(17,17,17,0.08);
-                }
-
-                /* Ink Splatter Overlay */
-                .ink-splat {
-                    position: absolute;
-                    background: #111;
-                    border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
-                    filter: url('#roughEdge');
-                }
-            ` }} />
-
-            {/* SVG Filter for Rough Edges (Ink Bleed effect) */}
-            <svg style={{ width: 0, height: 0, position: 'absolute' }}>
-                <filter id="roughEdge">
-                    <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" result="noise" />
-                    <feDisplacementMap in="SourceGraphic" in2="noise" scale="10" xChannelSelector="R" yChannelSelector="G" />
-                </filter>
-            </svg>
-
-            <div className="comic-container">
-                <div className="comic-grid">
-
-                    {/* Hero Panel */}
-                    <div className="panel panel-hero" style={{ overflow: 'visible' }}>
-                        <div aria-hidden="true" className="vert-text" style={{ fontSize: '6rem', letterSpacing: '-20px' }}>学生</div>
-
-                        <div aria-hidden="true" className="action-burst"></div>
-
-                        <div className="speech-bubble comic-dialogue" style={{ maxWidth: '300px', zIndex: 10 }}>
-                            <strong>STUDENT PROJECTS:</strong> Let us build your project!
-                        </div>
-
-                        <h1 className="massive-text" style={{ position: 'relative', zIndex: 2 }}>
-                            NAIL YOUR<br/>FINAL YEAR
-                        </h1>
-
-                        <div style={{ marginTop: '40px', position: 'relative', zIndex: 10 }}>
-                            <Link href="/request-project" className="manga-btn">
-                                REQUEST A PROJECT 🚀
-                            </Link>
+        <main id="main-content" tabIndex={-1} className={styles.page}>
+            <div className={styles.container}>
+                <section className={styles.hero} aria-labelledby="student-title">
+                    <div className={styles.heroCopy}>
+                        <span className={styles.japanese} aria-hidden="true">学生</span>
+                        <h1 id="student-title">Big ideas.<br />Real builds.</h1>
+                        <p>Hardware, software, and everything in between. Build a project you can demo, understand, and make your own.</p>
+                        <div className={styles.actions}>
+                            <a href="#project-lab" className={styles.button}>Find my project <Arrow /></a>
+                            <Link href="/request-project" className={styles.textLink}>I already have an idea</Link>
                         </div>
                     </div>
-
-                    {/* Competency Panel 1 */}
-                    <div className="panel panel-half-l">
-                        <div aria-hidden="true" className="vert-text">ハードウェア</div>
-                        <h2 className="offset-shadow-text" style={{ fontSize: '3rem', marginBottom: '20px' }}>HARDWARE & CIRCUITS</h2>
-                        <p className="comic-dialogue">
-                            From circuit design to working prototypes, we build the hardware side of your idea and connect it to the software it needs.
-                        </p>
+                    <Link href="/our-works" className={styles.heroArt} aria-label="Explore our work, including the robotic vacuum">
+                        <div className={styles.imageFrame}>
+                            <Image src="/projects/robotic-vacuum.webp" alt="OPAC's robotic vacuum and red dock, illustrated in a colourful manga courtyard" fill priority sizes="(max-width: 700px) 100vw, 45vw" />
+                            <span className={styles.star} aria-hidden="true">✦</span>
+                        </div>
+                        <span className={styles.imageCaption}>Made at OPAC / Robotic vacuum <Arrow /></span>
+                    </Link>
+                </section>
+                <div className={styles.disciplines} aria-label="Project services">Hardware <span>/</span> Software <span>/</span> IoT <span>/</span> Documentation</div>
+                <section id="project-lab" className={styles.lab} aria-labelledby="lab-title">
+                    <h2 id="lab-title">Find your next build.</h2>
+                    <p className={styles.intro}>A starting point for your own project. Pick an idea to see what it could become.</p>
+                    <ProjectExplorer />
+                </section>
+                <section className={styles.journey} aria-labelledby="journey-title">
+                    <h2 id="journey-title">From what if<br />to it works.</h2>
+                    <p className={styles.intro}>A clear path from your first sketch to a working demo.</p>
+                    <BuildJourney />
+                </section>
+                <section className={styles.helpGrid} aria-label="Plan your support and find answers">
+                    <SupportPicker />
+                    <div className={styles.faq}>
+                        <h2>Good questions.</h2>
+                        <details open><summary>Can I bring my own idea?</summary><p>Yes. Share your idea, requirements, and what you already have. We will work out the next steps together.</p></details>
+                        <details><summary>What will I receive?</summary><p>We agree on the deliverables in your brief. These can include a working prototype or application, source code, setup instructions, documentation, and a walkthrough of how it works.</p></details>
+                        <details><summary>How are cost and timelines decided?</summary><p>They depend on your scope, hardware needs, current progress, and deadline. We confirm the estimate and schedule with you before work starts. Share your course requirements so the build fits your submission rules.</p></details>
                     </div>
-
-                    {/* Competency Panel 2 */}
-                    <div className="panel panel-half-r" style={{ backgroundColor: 'var(--opac-pink)' }}>
-                        <div aria-hidden="true" className="ink-splat" style={{ width: '100px', height: '100px', top: '-20px', right: '-20px' }}></div>
-                        <div aria-hidden="true" className="vert-text">ソフトウェア</div>
-                        <h2 className="offset-shadow-text" style={{ fontSize: '2.5rem', marginBottom: '20px', position: 'relative', zIndex: 2 }}>CODE & REPORTS</h2>
-                        <p className="comic-dialogue" style={{ position: 'relative', zIndex: 2 }}>
-                            We build the software too: apps, dashboards, APIs, embedded code, and clear documentation for your project.
-                        </p>
+                </section>
+                <section className={styles.cta} aria-labelledby="student-cta">
+                    <span aria-hidden="true" className={styles.ctaJapanese}>未来</span>
+                    <h2 id="student-cta">Get started today</h2>
+                    <p>See what we have made. Then let us build what is next.</p>
+                    <div className={styles.actions}>
+                        <Link href="/our-works" className={styles.button}>Explore our works <Arrow /></Link>
+                        <Link href="/contact" className={styles.textLink}>Talk to the team</Link>
                     </div>
-
-                    {/* CTA Panel */}
-                    <div className="panel panel-hero" style={{ backgroundColor: '#111', color: 'var(--opac-paper)', textAlign: 'center', padding: '80px 20px' }}>
-                        <h2 className="manga-title" style={{ fontSize: 'clamp(3rem, 6vw, 6rem)', marginBottom: '30px', color: 'var(--opac-accent)' }}>GET STARTED TODAY</h2>
-                        <Link href="/projects" className="manga-btn" style={{ background: '#fff', color: '#111', boxShadow: '-8px 8px 0px var(--opac-yellow)' }}>
-                            Explore our works
-                        </Link>
-                    </div>
-
-                </div>
+                </section>
             </div>
         </main>
     );
