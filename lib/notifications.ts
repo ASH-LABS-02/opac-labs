@@ -4,7 +4,7 @@ import { getDatabase, type StoredRecord } from './database';
 type Inbox = 'contactMessages' | 'projectRequests';
 type Delivery = { status: 'pending' | 'sending' | 'sent'; attempts: number; nextAttemptAt: Date; leaseId?: string; sentAt?: Date; errorCode?: number | string };
 type Enquiry = StoredRecord & { telegram: Delivery };
-type Control = { _id: string; lockId: string; lockedUntil: Date; day?: string; attemptsToday?: number; lastAttemptAt?: Date };
+type Control = { _id: string; lockId: string; lockedUntil: Date; day?: string; attemptsToday?: number; lastAttemptAt?: Date; blockedUntil?: Date };
 
 export function pendingTelegramNotification(): Delivery {
     // Persisted with the enquiry itself, so no separate queue write can be lost.
@@ -67,6 +67,7 @@ export async function flushTelegramNotifications(options: { limit?: number } = {
     const day = new Date().toISOString().slice(0, 10);
     let attemptsToday = control.day === day ? control.attemptsToday || 0 : 0;
     try {
+        if (control.blockedUntil && control.blockedUntil.getTime() > Date.now()) return summary;
         const spacing = control.lastAttemptAt ? 1100 - (Date.now() - control.lastAttemptAt.getTime()) : 0;
         if (spacing > 0) await new Promise(resolve => setTimeout(resolve, Math.min(1100, spacing)));
         for (let i = 0; i < limit && Date.now() < deadline; i++) {
@@ -110,8 +111,10 @@ export async function flushTelegramNotifications(options: { limit?: number } = {
                 const advised = result.parameters?.retry_after;
                 if (typeof advised === 'number' && Number.isFinite(advised)) retryAfter = Math.max(retryAfter, Math.min(86_400, advised));
             } catch { /* Never log fetch errors: their URL contains the private bot token. */ }
+            const retryAt = new Date(Date.now() + retryAfter * 1000);
+            await controls.updateOne({ _id: 'telegram', lockId }, { $set: { blockedUntil: retryAt } });
             await db.collection<Enquiry>(inbox).updateOne({ _id: record._id, 'telegram.leaseId': lockId }, {
-                $set: { 'telegram.status': 'pending', 'telegram.nextAttemptAt': new Date(Date.now() + retryAfter * 1000), 'telegram.errorCode': errorCode },
+                $set: { 'telegram.status': 'pending', 'telegram.nextAttemptAt': retryAt, 'telegram.errorCode': errorCode },
                 $unset: { 'telegram.leaseId': '' },
             });
             summary.deferred++;

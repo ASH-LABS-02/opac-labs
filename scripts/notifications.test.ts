@@ -52,6 +52,10 @@ test('Telegram outbox keeps saved enquiries, leases concurrent work and retries 
         assert.equal(pending?.message, make('retry').message, 'Delivery failures cannot change the saved enquiry.');
         error = null;
         await flushTelegramNotifications({ limit: 1 }); assert.equal(calls.length, 2, 'Backoff must be respected.');
+        await enquiries.insertOne(make('during-backoff'));
+        await flushTelegramNotifications({ limit: 1 }); assert.equal(calls.length, 2, 'New enquiries also respect the private chat backoff.');
+        await enquiries.deleteOne({ _id: 'during-backoff' });
+        await db.collection<StoredRecord>('notificationControl').updateOne({ _id: 'telegram' }, { $set: { blockedUntil: new Date(0) } });
         await enquiries.updateOne({ _id: 'retry' }, { $set: { 'telegram.nextAttemptAt': new Date(0) } });
         assert.equal((await flushTelegramNotifications({ limit: 1 })).delivered, 1);
 
