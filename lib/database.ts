@@ -32,6 +32,8 @@ export async function getDatabase() {
             db.collection('projectRequests').createIndex({ userId: 1, createdAt: -1 }),
             db.collection('projectRequests').createIndex({ createdAt: -1 }),
             db.collection('contactMessages').createIndex({ createdAt: -1 }),
+            ...['projectRequests', 'contactMessages'].map(name =>
+                db.collection(name).createIndex({ 'telegram.status': 1, 'telegram.nextAttemptAt': 1, createdAt: 1 })),
             ...['projectRequests', 'contactMessages', 'chatHistory', 'rateLimits', 'auditLog'].map(name =>
                 db.collection(name).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })),
         ]);

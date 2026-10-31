@@ -21,6 +21,8 @@ Set these in the website's **Production** environment through the Netlify API/UI
 | `TRUST_PROXY_HEADERS` | `true` |
 | `TRUSTED_PROXY_PROVIDER` | `netlify` |
 | `OPAC_PAID_AI_ENABLED` | `false` |
+| `TELEGRAM_BOT_TOKEN` | Optional private Telegram bot credential, paired with the chat ID |
+| `TELEGRAM_CHAT_ID` | Paired owner's private chat; see [notification setup](NOTIFICATIONS.md) |
 
 All values are server-only. No Firebase API key, service-account key, App Check key, Redis or separate auth subscription is needed. SMTP can send verification and recovery messages without buying a domain when using Gmail's own address. Do not use your ordinary Google password. Verify the SMTP connection without emailing third parties.
 

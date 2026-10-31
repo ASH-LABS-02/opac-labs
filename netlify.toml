@@ -6,6 +6,9 @@
   NODE_VERSION = "22"
   NEXT_TELEMETRY_DISABLED = "1"
 
+[functions]
+  directory = "netlify/functions"
+
 # Netlify automatically supplies its Next.js adapter. Do not export this app as
 # static HTML: API routes handle authentication, requests, chat, and history.
 # MongoDB, auth and email credentials must be set in Netlify's environment UI/API

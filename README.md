@@ -39,7 +39,9 @@ Caddy provides HTTPS, only ports 80/443 are public, and the app runs as a non-ro
 
 Customers register with a password of at least 12 characters and verify their email before signing in. Sessions use HttpOnly cookies. Password reset revokes existing sessions. Visitors can fill a brief before signing in; its tab-scoped draft survives sign-in, registration and refresh for 24 hours. The visitor reviews and explicitly submits it after sign-in. Requests are saved in MongoDB before success is shown and are listed under `/my-projects` only for their owner.
 
-Staff receive requests at `/admin` under **Project briefs**, and contact messages in **Messages**. Automatic request-notification emails are not configured; SMTP is used for verification and account recovery. WhatsApp follow-up still requires the visitor to send it.
+Staff receive requests at `/admin` under **Project briefs**, and contact messages in **Messages**. Optional Telegram alerts notify the paired owner's private chat with a short preview and an inbox link. SMTP is used for verification and account recovery. WhatsApp follow-up still requires the visitor to send it.
+
+Telegram setup is described in [the notification guide](deploy/NOTIFICATIONS.md). An alert is queued atomically with each valid enquiry; delivery runs after the response, and a Netlify scheduled function retries due alerts every five minutes. Failed sends leave the enquiry intact. Local preview and integration tests disable real Telegram delivery.
 
 After the intended staff member creates and verifies their own account, grant access from a trusted machine with the private live MongoDB environment:
 

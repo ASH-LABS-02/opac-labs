@@ -13,6 +13,7 @@
     "verify:production": "node scripts/production-preflight.mjs",
     "test:security": "tsx --test scripts/security.test.ts",
     "test:hosting": "node --test scripts/production-preflight.test.mjs",
+    "test:notifications": "tsx --test scripts/notifications.test.ts",
     "test:integration": "node scripts/integration-test.mjs",
     "admin": "node scripts/manage-admin.mjs"
   },

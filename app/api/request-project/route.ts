@@ -4,6 +4,8 @@ import { records, publicRecord } from '@/lib/database';
 import { getAuthenticatedUser } from '@/lib/auth';
 import { RequestError, clientAddress, enforceRateLimit, readJsonRequest, requestErrorResponse, validEmail, validName, validPhone } from '@/lib/serverSecurity';
 import { expiresAt } from '@/lib/retention';
+import { after } from 'next/server';
+import { pendingTelegramNotification, flushTelegramNotifications } from '@/lib/notifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +75,11 @@ export async function POST(req: NextRequest) {
             status: 'pending',
             createdAt: new Date(),
             expiresAt: expiresAt('PROJECT_RETENTION_DAYS', 365),
+            telegram: pendingTelegramNotification(),
+        });
+        after(async () => {
+            try { await flushTelegramNotifications({ limit: 1 }); }
+            catch { console.error('Project alert deferred; the brief remains saved.'); }
         });
 
         const message = [

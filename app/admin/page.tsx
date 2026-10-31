@@ -21,6 +21,7 @@ export default function AdminPage() {
     const [password, setPassword] = useState(''), [code, setCode] = useState('');
     const [setup, setSetup] = useState<{ key: string; backupCodes: string[] } | null>(null);
     const [saving, setSaving] = useState<string[]>([]);
+    useEffect(() => { if (new URLSearchParams(window.location.search).get('inbox') === 'messages') setTab('contactMessages'); }, []);
     const checkAccess = useCallback(async () => {
         setChecking(true);
         try {

@@ -11,6 +11,7 @@
 - Chat history is bounded to 50 sessions per owner and 10 messages per session. Concurrent creates use an atomic array-size condition. Paid AI stays disabled unless explicitly enabled with a private key, and has minute/daily budgets when enabled.
 - TTL indexes handle expired records; auth/quotas enforce expiry independently. Public assets must not contain private database/auth/mail credentials or the retired personal portfolio identities.
 - A separate Netlify no-build upload publishes only `.netlify/static` and the private server function. The deployment guard rejects server manifests, environment files, standalone dependencies and symlinks in that public directory. Publishing raw `.next` was caught during live checks and replaced; internal manifests must return 404.
+- Telegram alerts use a server-only token and one-time private-chat pairing. Enquiries and their delivery state are saved atomically; a leased dispatcher retries failures without removing the enquiry. Plain-text previews, fixed inbox links, per-day delivery budgets and disabled paid broadcasts limit abuse. Notification delivery does not change staff authorization.
 
 ## Deployment boundaries
 

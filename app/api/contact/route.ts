@@ -4,6 +4,8 @@ import { records, publicRecord } from '@/lib/database';
 import { getAdminUser } from '@/lib/auth';
 import { RequestError, clientAddress, enforceRateLimit, readJsonRequest, requestErrorResponse, validEmail, validName } from '@/lib/serverSecurity';
 import { expiresAt } from '@/lib/retention';
+import { after } from 'next/server';
+import { pendingTelegramNotification, flushTelegramNotifications } from '@/lib/notifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +28,11 @@ export async function POST(req: NextRequest) {
         await (await records('contactMessages')).insertOne({ _id: ref.id,
             name: name.trim(), email: email.trim().toLowerCase(), message: message.trim(),
             status: 'new', createdAt: new Date(), expiresAt: expiresAt('CONTACT_RETENTION_DAYS', 180),
+            telegram: pendingTelegramNotification(),
+        });
+        after(async () => {
+            try { await flushTelegramNotifications({ limit: 1 }); }
+            catch { console.error('Contact alert deferred; the enquiry remains saved.'); }
         });
         return NextResponse.json({ success: true, id: ref.id }, { status: 201 });
     } catch (error) {

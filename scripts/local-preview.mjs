@@ -20,6 +20,7 @@ const child = spawn(process.execPath, [require.resolve('next/dist/bin/next'), 'd
         BETTER_AUTH_URL: `http://localhost:${port}`, BETTER_AUTH_SECRET: randomBytes(48).toString('base64url'),
         SMTP_HOST: '', SMTP_PORT: '', SMTP_USER: '', SMTP_PASSWORD: '',
         OPAC_LOCAL_MAILBOX: mailbox, OPAC_PAID_AI_ENABLED: 'false', OPENAI_API_KEY: '', OPENAI_API_KEY_FILE: '',
+        TELEGRAM_BOT_TOKEN: '', TELEGRAM_CHAT_ID: '',
         TRUST_PROXY_HEADERS: 'false', TRUSTED_PROXY_PROVIDER: '',
     },
 });
