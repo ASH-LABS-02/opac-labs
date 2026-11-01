@@ -3,6 +3,7 @@ import OpenAI from 'openai';
 import { getAuthenticatedUser } from '@/lib/auth';
 import { RequestError, clientAddress, enforceRateLimit, readJsonRequest, requestErrorResponse } from '@/lib/serverSecurity';
 import { getOpenAiKey } from '@/lib/serverSecrets';
+import { isProjectPlannerEnabled, projectPlannerUnavailable } from '@/lib/features';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +28,7 @@ function outlineProject(idea: string): { message: string; suggestions: Step[] } 
 }
 
 export async function POST(req: NextRequest) {
+    if (!isProjectPlannerEnabled()) return projectPlannerUnavailable();
     try {
         await enforceRateLimit('chat-global', 'all', 2000, 60_000);
         await enforceRateLimit('chat-ip', clientAddress(req), 40, 60_000);

@@ -5,11 +5,16 @@ const fixture = {
  MONGODB_URI: 'mongodb+srv://fixture-user:fixture-only@fixture.mongodb.net/opac_labs', MONGODB_DB: 'opac_labs', MONGODB_TRANSACTIONS: 'true',
  BETTER_AUTH_URL: 'https://opaclab-web.netlify.app', BETTER_AUTH_SECRET: 'fixture-only-000000000000000000000000000000000000',
  SMTP_HOST: 'smtp.gmail.com', SMTP_PORT: '465', SMTP_USER: 'fixture@example.test', SMTP_PASSWORD: 'fixture-only', EMAIL_FROM: 'OPAC Labs <fixture@example.test>',
- TRUST_PROXY_HEADERS: 'true', TRUSTED_PROXY_PROVIDER: 'netlify', OPAC_PAID_AI_ENABLED: 'false',
+ TRUST_PROXY_HEADERS: 'true', TRUSTED_PROXY_PROVIDER: 'netlify', OPAC_PAID_AI_ENABLED: 'false', OPAC_PROJECT_PLANNER_ENABLED: 'false',
 };
 function check(changes = {}) { return spawnSync(process.execPath, ['scripts/production-preflight.mjs','--platform=netlify'], { encoding: 'utf8', env: { PATH:process.env.PATH,SystemRoot:process.env.SystemRoot,...fixture,...changes } }); }
 test('Atlas and SMTP configuration passes offline validation', () => { assert.equal(check().status,0); });
 test('standard Atlas seed hosts with TLS pass too', () => { assert.equal(check({ MONGODB_URI: 'mongodb://fixture:fixture-only@one.mongodb.net:27017,two.mongodb.net:27017/opac_labs?tls=true&replicaSet=fixture' }).status, 0); });
+
+test('planner availability accepts explicit switches and rejects mistyped values', () => {
+ assert.equal(check({OPAC_PROJECT_PLANNER_ENABLED:'true'}).status,0);
+ assert.notEqual(check({OPAC_PROJECT_PLANNER_ENABLED:'FALSE'}).status,0);
+});
 
 test('Telegram configuration must be complete and restricted to the paired private chat', () => {
  const token='123456789:'+ 'A'.repeat(35);

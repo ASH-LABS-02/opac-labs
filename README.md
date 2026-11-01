@@ -52,7 +52,7 @@ node --env-file=.env.local scripts/manage-admin.mjs revoke staff@example.com
 
 Grant/revoke changes the server-controlled role and removes existing sessions. Staff must enroll an authenticator and complete TOTP verification. Server-side access checks require a verified account, the current admin role and a second-factor verification on the current session within 30 minutes. Customer sign-ups cannot assign roles or second-factor timestamps. Backup codes support recovery; keep them private.
 
-The project planner uses a basic local outline by default. Paid AI requires both `OPAC_PAID_AI_ENABLED=true` and a server-only OpenAI key. User/site minute and daily quotas remain enforced when enabled. Netlify's automatic provider keys cannot activate it.
+The project planner is temporarily hidden on the public site with `OPAC_PROJECT_PLANNER_ENABLED=false` in both its build and server environments. Local development and local preview keep it available with a basic outline. Re-enable the flag and rebuild/redeploy when ready. Paid AI separately requires both `OPAC_PAID_AI_ENABLED=true` and a server-only OpenAI key. User/site minute and daily quotas remain enforced when enabled. Netlify's automatic provider keys cannot activate it.
 
 ## Database and security
 

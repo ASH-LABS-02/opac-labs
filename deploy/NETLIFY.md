@@ -21,10 +21,15 @@ Set these in the website's **Production** environment through the Netlify API/UI
 | `TRUST_PROXY_HEADERS` | `true` |
 | `TRUSTED_PROXY_PROVIDER` | `netlify` |
 | `OPAC_PAID_AI_ENABLED` | `false` |
+| `OPAC_PROJECT_PLANNER_ENABLED` | `false` while the public planner is paused |
 | `TELEGRAM_BOT_TOKEN` | Optional private Telegram bot credential, paired with the chat ID |
 | `TELEGRAM_CHAT_ID` | Paired owner's private chat; see [notification setup](NOTIFICATIONS.md) |
 
 All values are server-only. No Firebase API key, service-account key, App Check key, Redis or separate auth subscription is needed. SMTP can send verification and recovery messages without buying a domain when using Gmail's own address. Do not use your ordinary Google password. Verify the SMTP connection without emailing third parties.
+
+## Project planner availability
+
+The public planner is temporarily hidden with `OPAC_PROJECT_PLANNER_ENABLED=false` in Production Builds and Functions. This removes its desktop/mobile navigation, homepage AI action and floating assistant. `/build-project` temporarily redirects to `/request-project`; chat and history endpoints return 404 before database or provider work. Local development and `preview:local` keep the planner enabled. To restore it, set this flag to `true` and rebuild/redeploy; paid AI still separately requires its server-only key and explicit opt-in. Stored chat histories are retained.
 
 ## Brevo account emails
 

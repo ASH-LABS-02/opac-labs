@@ -14,7 +14,10 @@ services:
     depends_on:
       web: { condition: service_healthy }
   web:
-    build: .
+    build:
+      context: .
+      args:
+        OPAC_PROJECT_PLANNER_ENABLED: ${OPAC_PROJECT_PLANNER_ENABLED:-false}
     restart: unless-stopped
     environment:
       MONGODB_URI: ${MONGODB_URI:?Set the private Atlas URI}
@@ -32,6 +35,7 @@ services:
       TRUST_PROXY_HEADERS: "true"
       TRUSTED_PROXY_PROVIDER: caddy
       OPAC_PAID_AI_ENABLED: "false"
+      OPAC_PROJECT_PLANNER_ENABLED: ${OPAC_PROJECT_PLANNER_ENABLED:-false}
     healthcheck:
       test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s

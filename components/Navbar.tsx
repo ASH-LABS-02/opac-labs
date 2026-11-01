@@ -14,7 +14,7 @@ const links = [
     { href: '/contact', label: 'Contact' },
 ];
 
-export default function Navbar() {
+export default function Navbar({ plannerEnabled }: { plannerEnabled: boolean }) {
     const pathname = usePathname();
     const { user, signOut } = useAuth();
     const [menu, setMenu] = useState<'account' | 'mobile' | null>(null);
@@ -50,7 +50,7 @@ export default function Navbar() {
 
     if (['/login', '/register', '/admin'].includes(pathname)) return null;
 
-    const renderLinks = () => links.map(({ href, label }) => (
+    const renderLinks = () => links.filter(({ href }) => plannerEnabled || href !== '/build-project').map(({ href, label }) => (
         <Link key={href} href={href} aria-current={pathname.startsWith(href) ? 'page' : undefined} onClick={() => setMenu(null)}>{label}</Link>
     ));
 

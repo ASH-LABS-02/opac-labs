@@ -6,6 +6,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import AIFloatingButton from "@/components/AIFloatingButton";
+import { isProjectPlannerEnabled } from '@/lib/features';
 
 const archivoBlack = Archivo_Black({
   weight: "400",
@@ -38,15 +39,16 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const plannerEnabled = isProjectPlannerEnabled();
   return (
     <html lang="en" className={`${archivoBlack.variable} ${kalam.variable} ${spaceMono.variable}`}>
       <body className="opac-site">
-        <noscript><p className="js-required">Enable JavaScript to sign in, send a project brief, or use the project planner.</p></noscript>
+        <noscript><p className="js-required">{plannerEnabled ? 'Enable JavaScript to sign in, send a project brief, or use the project planner.' : 'Enable JavaScript to sign in or send a project brief.'}</p></noscript>
         <a className="skip-link" href="#main-content">Skip to content</a>
         <AuthProvider>
-          <Navbar />
+          <Navbar plannerEnabled={plannerEnabled} />
           {children}
-          <AIFloatingButton />
+          {plannerEnabled && <AIFloatingButton />}
           <Footer />
         </AuthProvider>
       </body>

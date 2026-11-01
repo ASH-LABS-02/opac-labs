@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { isProjectPlannerEnabled } from './lib/features';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
@@ -6,6 +7,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   async redirects() {
     return [
+      ...(!isProjectPlannerEnabled() ? [{ source: '/build-project', destination: '/request-project', permanent: false }] : []),
       { source: '/project', destination: '/our-works', permanent: true },
       { source: '/projects', destination: '/our-works', permanent: true },
       { source: '/projects/portfolio-websites', destination: '/our-works/portfolio-websites', permanent: true },

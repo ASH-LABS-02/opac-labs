@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { Anton } from 'next/font/google';
 import CircuitSketch from '@/components/CircuitSketch';
 import styles from './home.module.css';
+import { isProjectPlannerEnabled } from '@/lib/features';
 
 const bannerFont = Anton({ weight: '400', subsets: ['latin'], variable: '--font-banner', display: 'swap', preload: false });
 const portfolioRequest = `/request-project?projectType=software&idea=${encodeURIComponent('I would like a custom portfolio website for my work. I have my own ideas for the visual direction and would like to discuss them with OPAC Labs.')}`;
@@ -14,6 +15,7 @@ const capabilities = [
 ];
 
 export default function Home() {
+    const plannerEnabled = isProjectPlannerEnabled();
     return (
         <main id="main-content" tabIndex={-1} className={styles.home}>
             <section className={styles.hero} aria-labelledby="hero-title">
@@ -106,8 +108,8 @@ export default function Home() {
             <section id="start-project" className={`${styles.cta} ${bannerFont.variable}`} aria-labelledby="cta-title">
                 <h2 id="cta-title">Your next project<br />starts here.</h2>
                 <div className={styles.ctaActions}>
-                    <Link href="/build-project" className={styles.button}>Plan with OPAC AI <span aria-hidden="true">→</span></Link>
-                    <Link href="/request-project" className={styles.textLink}>Have a brief? Request a project</Link>
+                    <Link href={plannerEnabled ? '/build-project' : '/request-project'} className={styles.button}>{plannerEnabled ? 'Plan with OPAC AI' : 'Send a project brief'} <span aria-hidden="true">→</span></Link>
+                    {plannerEnabled ? <Link href="/request-project" className={styles.textLink}>Have a brief? Request a project</Link> : <Link href="/contact" className={styles.textLink}>Have a question? Get in touch</Link>}
                 </div>
                 <div className={styles.ctaArt}>
                     <Image src="/manga-cta.webp" alt="A smiling manga character says: Ideas today, a brighter tomorrow!" fill sizes="(max-width: 700px) 100vw, 29vw" />

@@ -3,6 +3,7 @@ import { getAuthenticatedUser } from '@/lib/auth';
 import { getDatabase } from '@/lib/database';
 import { RequestError, enforceRateLimit, readJsonRequest, requestErrorResponse } from '@/lib/serverSecurity';
 import { expiresAt } from '@/lib/retention';
+import { isProjectPlannerEnabled, projectPlannerUnavailable } from '@/lib/features';
 export const dynamic = 'force-dynamic';
 const SESSION_ID = /^[A-Za-z0-9]{20}$/;
 type ChatDocument = { _id: string; sessions: { id: string; title: string; messages: StoredMessage[]; createdAt: Date }[]; expiresAt: Date };
@@ -33,6 +34,7 @@ function parseMessages(value: unknown): StoredMessage[] | null {
 }
 
 export async function GET(req: Request) {
+ if (!isProjectPlannerEnabled()) return projectPlannerUnavailable();
  try {
   const user = await getAuthenticatedUser(req);
   if (!user) return Response.json({ error: 'Sign in required' }, { status: 401 });
@@ -42,6 +44,7 @@ export async function GET(req: Request) {
  } catch (error) { return requestErrorResponse(error, 'Could not load chat history.'); }
 }
 export async function POST(req: Request) {
+ if (!isProjectPlannerEnabled()) return projectPlannerUnavailable();
  try {
   const user = await getAuthenticatedUser(req);
   if (!user) return Response.json({ error: 'Sign in required' }, { status: 401 });
@@ -65,6 +68,7 @@ export async function POST(req: Request) {
  } catch (error) { return requestErrorResponse(error, 'Could not save chat history.'); }
 }
 export async function DELETE(req: Request) {
+ if (!isProjectPlannerEnabled()) return projectPlannerUnavailable();
  try {
   const user = await getAuthenticatedUser(req);
   if (!user) return Response.json({ error: 'Sign in required' }, { status: 401 });
