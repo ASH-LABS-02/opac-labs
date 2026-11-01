@@ -477,20 +477,6 @@ export default function Contact() {
                             <div className="info-item">
                                 <div className="info-icon">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.82a16 16 0 0 0 6.29 6.29l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <div style={{ fontSize: '10px', fontWeight: '900', color: '#111', textTransform: 'uppercase', letterSpacing: '1.5px', fontFamily: 'var(--font-archivo-black), sans-serif', marginBottom: '4px' }}>WhatsApp</div>
-                                    <a href="https://wa.me/917867089886" style={{ fontSize: '13px', color: 'var(--opac-accent)', fontWeight: '700', textDecoration: 'none', fontFamily: 'var(--font-space-mono), monospace' }}>
-                                        +91 78670 89886
-                                    </a>
-                                </div>
-                            </div>
-
-                            <div className="info-item">
-                                <div className="info-icon">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
                                         <polyline points="22,6 12,13 2,6" />
                                     </svg>
@@ -546,7 +532,7 @@ export default function Contact() {
                         <div aria-hidden="true" className="vert-text">速い</div>
                         <h2 className="offset-shadow-text" style={{ fontSize: '1.8rem', marginBottom: '14px' }}>FAST RESPONSE</h2>
                         <p className="comic-dialogue">
-                            We will review your message and get back to you. For a direct conversation, message us on WhatsApp.
+                            Send us a message using the form or email us directly. We will review your enquiry and get back to you.
                         </p>
                     </div>
 
@@ -572,8 +558,8 @@ export default function Contact() {
                         <h2 className="manga-title" style={{ fontSize: 'clamp(3rem, 6vw, 6rem)', marginBottom: '30px', color: 'var(--opac-accent)' }}>
                             LET&apos;S BUILD TOGETHER
                         </h2>
-                        <a href="https://wa.me/917867089886" className="manga-btn" style={{ background: '#fff', color: '#111', boxShadow: '-8px 8px 0px var(--opac-yellow)', textDecoration: 'none' }}>
-                            WHATSAPP US NOW!
+                        <a href="mailto:opaclabs.in@gmail.com" className="manga-btn" style={{ background: '#fff', color: '#111', boxShadow: '-8px 8px 0px var(--opac-yellow)', textDecoration: 'none' }}>
+                            EMAIL US ↗
                         </a>
                     </div>
 

@@ -56,7 +56,6 @@ export default function RequestProject() {
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
-    const [whatsappUrl, setWhatsappUrl] = useState('');
     const [reference, setReference] = useState('');
 
     useEffect(() => {
@@ -123,7 +122,6 @@ export default function RequestProject() {
             const data = await res.json();
             if (res.status === 401 && data.code === 'SIGN_IN_REQUIRED') { continueToSignIn(); return; }
             if (!res.ok) throw new Error(data.error || 'Failed to submit');
-            setWhatsappUrl(data.whatsappUrl || '');
             setReference(data.requestId || '');
             setIsSubmitted(true);
             clearProjectBriefDraft();
@@ -191,7 +189,6 @@ export default function RequestProject() {
                     {reference && <p style={{ fontFamily: 'var(--font-space-mono), monospace', fontSize: '0.9rem' }}>Reference: {reference.slice(0, 8).toUpperCase()}</p>}
                     <div className="success-actions">
                         <Link href="/my-projects" className="manga-btn">Track my request ↗</Link>
-                        {whatsappUrl && <p><a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="manga-btn">Continue on WhatsApp ↗</a></p>}
                         <button onClick={() => router.push('/our-works')} className="manga-btn">Explore our work ↗</button>
                     </div>
                 </div>
@@ -609,7 +606,7 @@ export default function RequestProject() {
                                         {isSubmitting ? 'Submitting...' : authLoading ? 'Checking sign-in…' : user ? 'Send Project Brief 🚀' : 'Sign in to send brief ↗'}
                                     </button>
                                     <p className="comic-dialogue" style={{ fontSize: '0.9rem', color: '#888', textAlign: 'center', margin: 0 }}>
-                                        After you send, our team receives your brief. WhatsApp follow-up is optional.
+                                        Our team will review your brief and follow up by email. Track its progress in My projects.
                                     </p>
                                 </div>
                             </form>

@@ -82,21 +82,7 @@ export async function POST(req: NextRequest) {
             catch { console.error('Project alert deferred; the brief remains saved.'); }
         });
 
-        const message = [
-            '*Project enquiry — OPAC Labs*',
-            `Name: ${clean.name}`,
-            `Email: ${clean.email}`,
-            `Phone: ${clean.phone}`,
-            `Service: ${TYPE_LABELS[projectType]}`,
-            `Target budget: ${BUDGET_LABELS[budget]}`,
-            `Timeline: ${TIMELINE_LABELS[timeline]}`,
-            `Brief: ${clean.description}`,
-            `Reference: ${ref.id}`,
-        ].join('\n');
-        return NextResponse.json({
-            requestId: ref.id,
-            whatsappUrl: `https://wa.me/917867089886?text=${encodeURIComponent(message)}`,
-        }, { status: 201 });
+        return NextResponse.json({ requestId: ref.id }, { status: 201 });
     } catch (error) {
         if (!(error instanceof RequestError)) console.error('Could not save project request:', error);
         return requestErrorResponse(error, 'Could not submit your project brief. Please try again.');
