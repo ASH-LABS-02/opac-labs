@@ -14,6 +14,19 @@
 # MongoDB, auth and email credentials must be set in Netlify's environment UI/API
 # for BOTH Builds and Functions; values in this file do not reach functions.
 
+# Keep accounts and callbacks on one public origin, including old bookmarked links.
+[[redirects]]
+  from = "https://opaclab-web.netlify.app/*"
+  to = "https://opaclabs.in/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://www.opaclabs.in/*"
+  to = "https://opaclabs.in/:splat"
+  status = 301
+  force = true
+
 # A separate CLI --no-build deploy reads this file rather than the adapter's
 # temporary build-time configuration. Keep Next's image endpoint on Image CDN.
 [[redirects]]

@@ -21,7 +21,7 @@ Open the website at `http://localhost:3000` and the local email inbox at `http:/
 
 ## Production
 
-Use [Netlify Free and MongoDB Atlas](deploy/NETLIFY.md). The public app, API routes, authentication and staff dashboard are one deployment. The former admin hostname redirects to `/admin` to avoid cross-domain session cookies.
+Use [Netlify Free and MongoDB Atlas](deploy/NETLIFY.md). The public website is `https://opaclabs.in`; staff use `https://opaclabs.in/admin`. The app, API routes, authentication and staff dashboard are one deployment. The former Netlify hostnames redirect to this domain to avoid cross-domain session cookies.
 
 Set the server-only values in `.env.example` through Netlify's production environment settings. A real Atlas connection, random auth secret and working SMTP transport are required. Brevo Free is the selected SMTP provider. Verify the business sender and activate transactional sending; a Gmail app password remains an optional alternative. `npm run build:netlify` blocks missing or unsafe production configuration. Never put database, auth or email secrets in `NEXT_PUBLIC_*` variables.
 
@@ -33,7 +33,7 @@ For a Linux Docker host, fill `production.env.example` privately and run:
 docker compose --env-file production.env -f compose.prod.yaml up --build -d
 ```
 
-Caddy provides HTTPS, only ports 80/443 are public, and the app runs as a non-root user. This production setup uses external Atlas. A custom domain is not required for Netlify; the proposed domain is `opaclab.in`.
+Caddy provides HTTPS, only ports 80/443 are public, and the app runs as a non-root user. This alternative production setup uses external Atlas. The current deployment uses Netlify with the registered domain `opaclabs.in`.
 
 ## Accounts and project requests
 

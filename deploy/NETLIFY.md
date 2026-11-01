@@ -1,6 +1,6 @@
 # Netlify Free + MongoDB Atlas
 
-The website is deployed to `opaclab-web.netlify.app`. `/admin` is the staff dashboard on the same origin. The former `opaclab-admin.netlify.app` site is only a redirect. The root `netlify.toml` uses Netlify's Next.js adapter so API routes run as functions; do not publish a static export.
+The public website is `https://opaclabs.in`, hosted by the `opaclab-web` Netlify project. `/admin` is the staff dashboard on the same origin. `www.opaclabs.in` and the original `opaclab-web.netlify.app` hostname redirect to the canonical domain; `opaclab-admin.netlify.app` redirects directly to `https://opaclabs.in/admin`. The root `netlify.toml` uses Netlify's Next.js adapter so API routes run as functions; do not publish a static export.
 
 ## Server environment
 
@@ -11,7 +11,7 @@ Set these in the website's **Production** environment through the Netlify API/UI
 | `MONGODB_URI` | Private authenticated Atlas URI with verified TLS |
 | `MONGODB_DB` | `opac_labs` |
 | `MONGODB_TRANSACTIONS` | `true` for Atlas |
-| `BETTER_AUTH_URL` | `https://opaclab-web.netlify.app` |
+| `BETTER_AUTH_URL` | `https://opaclabs.in` |
 | `BETTER_AUTH_SECRET` | At least 32 cryptographically random characters |
 | `SMTP_HOST` | `smtp-relay.brevo.com` (selected) |
 | `SMTP_PORT` | `587` for Brevo |
@@ -54,7 +54,20 @@ For `opaclab-web` and the optional `opaclab-admin` redirect, open **Project conf
 
 Netlify documents visibility as a dashboard-only setting, without a public API or CLI command. See [Netlify's visibility instructions](https://www.netlify.com/knowledge-base/how-to-password-protect-a-netlify-site-or-deploy-previews/). Making the production site public allows visitors to reach the application; project submission still requires a verified account, and staff data still requires the admin role plus fresh authenticator verification.
 
-Netlify Free and Atlas M0 have usage limits. Keep paid AI disabled. Configure a domain later (currently considering `opaclab.in`), then update `BETTER_AUTH_URL` and redeploy. Sign in again after changing origins.
+Netlify Free and Atlas M0 have usage limits. Keep paid AI disabled.
+
+## Custom domain
+
+`opaclabs.in` is registered at GoDaddy and uses its nameservers. The website records are:
+
+| Type | Name | Value |
+| --- | --- | --- |
+| A | `@` | `75.2.60.5` |
+| CNAME | `www` | `opaclab-web.netlify.app` |
+
+Keep unrelated DNS records intact. New `.in` registrations may need GoDaddy identity/email verification before activation. The primary domain on Netlify is `opaclabs.in`, with `www.opaclabs.in` as an alias. Netlify supplies and renews the HTTPS certificate; do not publish a cutover while the certificate fails normal validation.
+
+The production `BETTER_AUTH_URL` must match `https://opaclabs.in` in both Builds and Functions. Preserve the existing auth secret and database/mail/Telegram credentials. Rebuild and deploy after changing the origin. Account email links and Telegram inbox buttons use this setting automatically. Sign in again on the new domain; browser cookies and saved drafts on the old hostname do not move between origins. Email still uses the existing verified business sender until a separate domain-email setup is completed.
 
 ## Migration
 
